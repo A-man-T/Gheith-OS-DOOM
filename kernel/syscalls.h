@@ -2,9 +2,9 @@
 #include "file_descriptor.h"
 
 // Define constants
-const int HARDCODED_SEEK_SET = 0;
-const int HARDCODED_SEEK_CUR = 1;
-const int HARDCODED_SEEK_END = 2;
+const int SEEK_SET = 0;
+const int SEEK_CUR = 1;
+const int SEEK_END = 2;
 
 
 // Seeks to a position in a file, based on whence.

@@ -27,17 +27,17 @@ int lseek(const int fd, const int offset, const int whence)
     int new_offset = -1;
     switch (whence)
     {
-        case HARDCODED_SEEK_SET:
+        case SEEK_SET:
         {
             new_offset = offset;
             break;
         }
-        case HARDCODED_SEEK_CUR:
+        case SEEK_CUR:
         {
             new_offset = descriptor->get_offset() + offset;
             break;
         }
-        case HARDCODED_SEEK_END:
+        case SEEK_END:
         {
             new_offset = descriptor->get_length() + offset;
             break;
