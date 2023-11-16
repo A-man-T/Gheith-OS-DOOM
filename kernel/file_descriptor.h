@@ -10,6 +10,13 @@
 #include "stdint.h"
 #include "vmm.h"
 
+
+struct PipeBuffer{
+        Shared<BoundedBuffer<char>> buffer;
+        bool has_closed_all_writers = false;
+        PipeBuffer(Shared<BoundedBuffer<char>> buffer) : buffer{buffer} {}
+};
+
 class FileDescriptor {
    private:
     enum class Type {
@@ -22,12 +29,7 @@ class FileDescriptor {
         PipeWrite
     };
 
-    struct PipeBuffer{
-        Shared<BoundedBuffer<char>> buffer;
-        bool has_closed_all_writers = false;
-        PipeBuffer(Shared<BoundedBuffer<char>> buffer) : buffer{buffer} {}
-    };
-
+   
     struct Data {
         enum class Tag {
             None,
@@ -206,7 +208,7 @@ class FileDescriptor {
 
     static Shared<FileDescriptor> from_node(Node* node);
     static Shared<FileDescriptor> from_terminal(uint32_t code);
-    static Shared<FileDescriptor> from_bounded_buffer(Shared<BoundedBuffer<char>> buffer, bool is_read_end);
+    static Shared<FileDescriptor> from_bounded_buffer(Shared<PipeBuffer> buffer, bool is_read_end);
 
    private:
     bool uses_file();

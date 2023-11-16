@@ -112,11 +112,14 @@ int wrapped_sys_handler(uint32_t syscall_type, uint32_t* interrupt_frame) {
             }
 
             auto process = active_processes.mine();
-            auto semaphore = process->semaphores.get(sys_args[0]);
-            if (semaphore == nullptr) {
+            auto semaphore_pointer = process->semaphores.get(sys_args[0]);
+            if (semaphore_pointer == nullptr) {
                 return -1;
             }
-
+            auto& semaphore = *semaphore_pointer;
+            if(semaphore == nullptr) {
+                return -1;
+            }
             semaphore->up();
             return 0;
         }
@@ -127,8 +130,12 @@ int wrapped_sys_handler(uint32_t syscall_type, uint32_t* interrupt_frame) {
             }
 
             auto process = active_processes.mine();
-            auto semaphore = process->semaphores.get(sys_args[0]);
-            if (semaphore == nullptr) {
+            auto semaphore_pointer = process->semaphores.get(sys_args[0]);
+            if (semaphore_pointer == nullptr) {
+                return -1;
+            }
+            auto& semaphore = *semaphore_pointer;
+            if(semaphore == nullptr) {
                 return -1;
             }
 
@@ -202,8 +209,11 @@ int wrapped_sys_handler(uint32_t syscall_type, uint32_t* interrupt_frame) {
             if (offset % PhysMem::FRAME_SIZE != 0) {
                 return 0;
             }
-
-            auto fd = process->file_descriptors.get(sys_args[2]);
+            auto fd_pointer = process->file_descriptors.get(file);
+            if (fd_pointer == nullptr) {
+                return 0;
+            }
+            auto& fd = *fd_pointer;
             if (fd == nullptr || !fd->supports_offset()) {
                 return 0;
             }
@@ -301,7 +311,11 @@ int wrapped_sys_handler(uint32_t syscall_type, uint32_t* interrupt_frame) {
             }
 
             auto process = active_processes.mine();
-            auto fd = process->file_descriptors.get(sys_args[0]);
+            auto fd_pointer = process->file_descriptors.get(sys_args[0]);
+            if (fd_pointer == nullptr) {
+                return 0;
+            }
+            auto& fd = *fd_pointer;
             if (fd == nullptr) {
                 return -1;
             }
@@ -330,7 +344,11 @@ int wrapped_sys_handler(uint32_t syscall_type, uint32_t* interrupt_frame) {
             buffer[0] = buffer[0];
 
             auto process = active_processes.mine();
-            auto fd = process->file_descriptors.get(sys_args[0]);
+            auto fd_pointer = process->file_descriptors.get(sys_args[0]);
+            if (fd_pointer == nullptr) {
+                return 0;
+            }
+            auto& fd = *fd_pointer;
             if (fd == nullptr || !fd->is_readable()) {
                 return -1;
             }
@@ -367,7 +385,11 @@ int wrapped_sys_handler(uint32_t syscall_type, uint32_t* interrupt_frame) {
             (void)buffer[0];
 
             auto process = active_processes.mine();
-            auto fd = process->file_descriptors.get(sys_args[0]);
+            auto fd_pointer = process->file_descriptors.get(sys_args[0]);
+            if (fd_pointer == nullptr) {
+                return 0;
+            }
+            auto& fd = *fd_pointer;
             if (fd == nullptr || !fd->is_writable()) {
                 return -1;
             }
@@ -400,7 +422,8 @@ int wrapped_sys_handler(uint32_t syscall_type, uint32_t* interrupt_frame) {
                 return -1;
             }
 
-            auto buffer = Shared<BoundedBuffer<char>>::make(100);
+            auto bounded_buffer = Shared<BoundedBuffer<char>>::make(100);
+            auto buffer = Shared<PipeBuffer>::make(bounded_buffer);
             *descriptors[0] = process->file_descriptors.alloc(FileDescriptor::from_bounded_buffer(buffer, false));
             *descriptors[1] = process->file_descriptors.alloc(FileDescriptor::from_bounded_buffer(buffer, true));
 
@@ -417,7 +440,11 @@ int wrapped_sys_handler(uint32_t syscall_type, uint32_t* interrupt_frame) {
                 return -1;
             }
 
-            auto fd = process->file_descriptors.get(sys_args[0]);
+            auto fd_pointer = process->file_descriptors.get(sys_args[0]);
+            if (fd_pointer == nullptr) {
+                return 0;
+            }
+            auto& fd = *fd_pointer;
             if (fd == nullptr) {
                 return -1;
             }
