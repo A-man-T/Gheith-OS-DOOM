@@ -22,6 +22,12 @@ class FileDescriptor {
         PipeWrite
     };
 
+    struct PipeBuffer{
+        Shared<BoundedBuffer<char>> buffer;
+        bool has_closed_all_writers = false;
+        PipeBuffer(Shared<BoundedBuffer<char>> buffer) : buffer{buffer} {}
+    };
+
     struct Data {
         enum class Tag {
             None,
@@ -31,7 +37,7 @@ class FileDescriptor {
 
         union Union {
             Node* file;
-            Shared<BoundedBuffer<char>> buffer;
+            Shared<PipeBuffer> buffer;
 
             Union() {}
             ~Union() {}
@@ -67,10 +73,10 @@ class FileDescriptor {
         void construct_buffer(Args... args) {
             reset();
             tag = Tag::Buffer;
-            new (&data.buffer) Shared<BoundedBuffer<char>>(args...);
+            new (&data.buffer) Shared<PipeBuffer>(args...);
         }
 
-        Shared<BoundedBuffer<char>> get_buffer() {
+        Shared<PipeBuffer> get_buffer() {
             ASSERT(tag == Tag::Buffer);
             return data.buffer;
         }
@@ -104,6 +110,7 @@ class FileDescriptor {
    public:
     FileDescriptor(Type type);
     FileDescriptor(FileDescriptor&& other);
+    ~FileDescriptor();
 
     bool is_readable();
     bool is_writable();
@@ -139,8 +146,11 @@ class FileDescriptor {
                 if (size == 0) {
                     return 0;
                 }
+                if(data.get_buffer()->has_closed_all_writers){
+                    return 0;
+                }
                 schedule([buffer, bounded_buffer = data.get_buffer()](auto continuation) {
-                    bounded_buffer->get([buffer, continuation](auto data) {
+                    bounded_buffer->buffer->get([buffer, continuation](auto data) {
                         continuation(1, [buffer, data] {
                             *buffer = data;
                         });
@@ -174,7 +184,7 @@ class FileDescriptor {
                     return 0;
                 }
                 schedule([buffer, bounded_buffer = data.get_buffer()](auto continuation) {
-                    bounded_buffer->put(*buffer, [continuation] {
+                    bounded_buffer->buffer->put(*buffer, [continuation] {
                         VMM::vmm_off();
                         continuation(1);
                     });

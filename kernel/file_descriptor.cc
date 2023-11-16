@@ -65,8 +65,9 @@ Shared<FileDescriptor> FileDescriptor::from_terminal(uint32_t code) {
 Shared<FileDescriptor> FileDescriptor::from_bounded_buffer(Shared<BoundedBuffer<char>> buffer, bool is_read_end) {
     auto descriptor = Shared<FileDescriptor>::make(
         is_read_end ? Type::PipeRead : Type::PipeWrite);
-    descriptor->data.construct_buffer(buffer);
-
+    
+    auto pipe_buffer = Shared<PipeBuffer>::make(buffer);
+    descriptor->data.construct_buffer(pipe_buffer);
     return descriptor;
 }
 
@@ -76,4 +77,11 @@ bool FileDescriptor::uses_file() {
 
 bool FileDescriptor::uses_buffer() {
     return type == Type::PipeRead || type == Type::PipeWrite;
+}
+
+FileDescriptor::~FileDescriptor() {
+    Debug::printf("HELLO IS GOOD\n");
+    if(type == Type::PipeWrite){
+        data.get_buffer()->has_closed_all_writers = true;
+    }
 }
