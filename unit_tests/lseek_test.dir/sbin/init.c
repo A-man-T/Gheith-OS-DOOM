@@ -39,8 +39,8 @@ int main(int argc, char** argv) {
         printf("*** Error: new_offset wrong! Returned %d\n", new_offset);
         shutdown();
     }
-    scan(art_fd, buffer, 100); // Read the first 4096 bytes
-    print(2, buffer, 100); // Print first 4096 bytes
+    scan(art_fd, buffer, 100); // Read the first 100 bytes
+    print(2, buffer, 100); // Print first 100 bytes
     printf("\n");
 
     // test seeking from offset
@@ -50,8 +50,8 @@ int main(int argc, char** argv) {
         printf("*** Error: new_offset wrong! Returned %d\n", new_offset);
         shutdown();
     }
-    scan(art_fd, buffer, 200); // Read the first 4096 bytes
-    print(2, buffer, 200); // Print first 4096 bytes
+    scan(art_fd, buffer, 200); // Read the first 200 bytes
+    print(2, buffer, 200); // Print first 200 bytes
     printf("\n");
 
 
@@ -69,6 +69,8 @@ int main(int argc, char** argv) {
 
 
     // Edge case and debug message testing
+    int initial_location = seek(art_fd, 0, 0); // move offset back to offset 10
+
     int wrong_fd = seek(9, 10, 0);
     if (wrong_fd != -1) {
         printf("*** Error: shouldn't be able to open invalid fd! Returned %d\n", wrong_fd);
@@ -81,12 +83,23 @@ int main(int argc, char** argv) {
         shutdown();
     }
 
-    wrong_fd = seek(1, 10, 4);
+    wrong_fd = seek(art_fd, 10, 4);
     if (wrong_fd != -1) {
         printf("*** Error: shouldn't be able to open with invalid whence! Returned %d\n", wrong_fd);
         shutdown();
     }
 
+    wrong_fd = seek(art_fd, -10, 0);
+    if (wrong_fd != -1) {
+        printf("*** Error: shouldn't accept negative offsets! Returned %d\n", wrong_fd);
+        shutdown();
+    }
+
+    int current_offset = seek(art_fd, 0, 1); // get current offset
+    if (initial_location != current_offset) {
+        printf("*** Error: offset shouldn't have moved during failed lseeks\n");
+        shutdown();
+    }
 
     printf("*** bye!\n");
     shutdown();
