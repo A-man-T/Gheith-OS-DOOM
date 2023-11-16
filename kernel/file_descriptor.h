@@ -149,6 +149,11 @@ class FileDescriptor {
                 return -1;
             }
 
+            case Type::StdIn: {
+                buffer[0] = Debug::getchar();
+                return 1;
+            }
+
             default:
                 MISSING();
         }

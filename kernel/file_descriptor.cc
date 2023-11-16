@@ -15,7 +15,7 @@ FileDescriptor::FileDescriptor(FileDescriptor&& other)
 }
 
 bool FileDescriptor::is_readable() {
-    return type == Type::File || type == Type::PipeRead;
+    return type == Type::File || type == Type::PipeRead || type == Type::StdIn;
 }
 
 bool FileDescriptor::is_writable() {

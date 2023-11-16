@@ -43,7 +43,7 @@ extern "C" void kernelInit(void) {
     U8250 uart;
 
     if (!smpInitDone) {
-        Debug::init(&uart);
+        Debug::init(&uart, &uart);
         Debug::debugAll = false;
         Debug::printf("\n| What just happened? Why am I here?\n");
 
@@ -94,7 +94,8 @@ extern "C" void kernelInit(void) {
         heapInit((void*)HEAP_START,HEAP_SIZE);
 
         /* switch to dynamically allocated UART */
-        Debug::init(new U8250);
+        U8250 *heapUART = new U8250;
+        Debug::init(heapUART, heapUART);
         Debug::printf("| switched to new UART\n");
 
         /* running global constructors */
