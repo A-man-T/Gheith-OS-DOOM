@@ -1,7 +1,6 @@
 #include "libc.h"
 /*
-Very trivial test that makes sure that you can read a single command from stdin 
-and echo the commmand back to the user
+Very trivial test that makes sure that you can close stdin and open fd0 with something else
 */
 
 #define ASSERT(condition) \
