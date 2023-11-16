@@ -10,7 +10,7 @@
 int lseek(const int fd, const int offset, const int whence)
 {
     Process * process = active_processes.mine();
-    Shared<FileDescriptor> descriptor = process->file_descriptors.get(fd);    // TODO: does this check for negative fd's? not sure
+    Shared<FileDescriptor> descriptor = process->file_descriptors.get(fd);
     if (descriptor == nullptr)
     {
         Debug::printf("passed in invalid file descriptor into lseek\n");
