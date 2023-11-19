@@ -1,0 +1,10 @@
+*** Test 1: opening up 100 file directories:
+*** Passed test 1
+*** Test 2: opening up the 101st file directory returns -1:
+*** Passed test 2
+*** Test 3: closing and getting lengths of file directories > 10:
+*** Passed test 3
+*** Test 4: making sure closed fds can be allocated again:
+*** Passed test 4
+*** Test 5: making sure all other fds > 10 can be closed properly:
+*** Passed test 5

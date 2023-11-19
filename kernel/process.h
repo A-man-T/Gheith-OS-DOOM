@@ -37,7 +37,7 @@ struct Process {
     ProcessContext context;
     Future<uint32_t> exit_code;
     MemoryMapping memory_mapping;
-    DescriptorList<Shared<FileDescriptor>, 10> file_descriptors;
+    DescriptorList<Shared<FileDescriptor>, 100> file_descriptors;
     DescriptorList<Shared<Semaphore>, 100> semaphores;
     Queue<Process, NoLock> child_processes;
     Process* next;  // for queue
