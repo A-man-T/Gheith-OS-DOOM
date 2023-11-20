@@ -78,9 +78,14 @@ bool FileDescriptor::uses_buffer() {
     return type == Type::PipeRead || type == Type::PipeWrite;
 }
 
+bool FileDescriptor::is_tty() {
+    return type == Type::StdIn || type == Type::StdOut || type == Type::StdErr;
+}
+
 FileDescriptor::~FileDescriptor() {
    
     if(type == Type::PipeWrite){
         data.get_buffer()->has_closed_all_writers = true;
     }
 }
+

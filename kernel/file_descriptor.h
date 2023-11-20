@@ -202,6 +202,7 @@ class FileDescriptor {
     }
 
     bool supports_offset();
+    bool is_tty();
     uint32_t get_length();
     uint32_t get_offset();
     void set_offset(uint32_t new_offset);

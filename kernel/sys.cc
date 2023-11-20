@@ -475,6 +475,13 @@ int wrapped_sys_handler(uint32_t syscall_type, uint32_t* interrupt_frame) {
             return lseek(sys_args[0], sys_args[1], sys_args[2]);
         }
 
+        case 1050: { // int isatty(int fd)
+            if (!validate_address(sys_args)) {
+                return -1;
+            }
+            return isatty(sys_args[0]);
+        }
+
         default:
             Debug::panic("syscall %d\n", syscall_type);
     }
