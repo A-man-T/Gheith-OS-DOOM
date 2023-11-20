@@ -19,7 +19,6 @@ struct PipeBuffer {
     Shared<BoundedBuffer<CharWrapper>> buffer;
 
     bool has_closed_all_writers;
-    bool eof_blocked;
 
     Atomic<int> bytesInBuffer{0};
     PipeBuffer(Shared<BoundedBuffer<CharWrapper>> buffer) : buffer{buffer} {}
@@ -162,7 +161,7 @@ class FileDescriptor {
                 data.get_buffer()->bytesInBuffer.add_fetch(-1);
                 schedule([buffer, bounded_buffer = data.get_buffer()](auto continuation) {
                     bounded_buffer->buffer->get([buffer, continuation, bounded_buffer](auto data) {
-                        continuation((data.eof) ? 0 : 1, [buffer, data,bounded_buffer] {
+                        continuation((data.eof) ? 0 : 1, [buffer, data, bounded_buffer] {
                             if (!data.eof) {
                                 *buffer = data.data;
                             } else {
