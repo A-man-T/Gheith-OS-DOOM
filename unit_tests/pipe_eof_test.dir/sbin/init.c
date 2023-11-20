@@ -107,5 +107,34 @@ int main(int argc, char** argv) {
 
     printf("*** Finished Test 3\n");
 
+    close(*pipe_read);
+
+    /*
+    TEST 4
+    If read blocks, and all the writers are closed, the read must get EOF.
+    */
+    printf("*** Starting Test 4\n");
+
+    pipe(pipe_write, pipe_read);
+
+    if (fork() == 0) {
+        close(*pipe_write);
+        exit(10);
+    } else {
+        close(*pipe_write);
+        //The read is still possible... Blocks the parent
+        //The intended behavior is set to be ran with 1 core
+        //Multiple cores, while may not break the TC, does not test the intended behavior
+        pipeParentRead = read(*pipe_read, buffer, 1);
+
+        if (pipeParentRead == 0) {
+            printf("*** Passed Test 4\n");
+        } else {
+            printf("*** Failed Test 4\n");
+        }
+    }
+
+    printf("*** Finished Test 4\n");
+
     shutdown();
 }

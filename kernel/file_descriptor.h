@@ -10,11 +10,19 @@
 #include "stdint.h"
 #include "vmm.h"
 
+struct CharWrapper {
+    char data;
+    bool eof;
+};
 
-struct PipeBuffer{
-        Shared<BoundedBuffer<char>> buffer;
-        bool has_closed_all_writers = false;
-        PipeBuffer(Shared<BoundedBuffer<char>> buffer) : buffer{buffer} {}
+struct PipeBuffer {
+    Shared<BoundedBuffer<CharWrapper>> buffer;
+
+    bool has_closed_all_writers;
+    bool eof_blocked;
+
+    Atomic<int> bytesInBuffer{0};
+    PipeBuffer(Shared<BoundedBuffer<CharWrapper>> buffer) : buffer{buffer} {}
 };
 
 class FileDescriptor {
@@ -148,13 +156,19 @@ class FileDescriptor {
                 if (size == 0) {
                     return 0;
                 }
-                if(data.get_buffer()->has_closed_all_writers){
+                if (data.get_buffer()->has_closed_all_writers && data.get_buffer()->bytesInBuffer.get() <= 0) {
                     return 0;
                 }
+                data.get_buffer()->bytesInBuffer.add_fetch(-1);
                 schedule([buffer, bounded_buffer = data.get_buffer()](auto continuation) {
-                    bounded_buffer->buffer->get([buffer, continuation](auto data) {
-                        continuation(1, [buffer, data] {
-                            *buffer = data;
+                    bounded_buffer->buffer->get([buffer, continuation, bounded_buffer](auto data) {
+                        continuation((data.eof) ? 0 : 1, [buffer, data,bounded_buffer] {
+                            if (!data.eof) {
+                                *buffer = data.data;
+                            } else {
+                                CharWrapper value = {'\0', true};
+                                bounded_buffer->buffer->put(value, []{});
+                            }
                         });
                     });
                 });
@@ -185,8 +199,10 @@ class FileDescriptor {
                 if (size == 0) {
                     return 0;
                 }
-                schedule([buffer, bounded_buffer = data.get_buffer()](auto continuation) {
-                    bounded_buffer->buffer->put(*buffer, [continuation] {
+                data.get_buffer()->bytesInBuffer.add_fetch(1);
+                CharWrapper valToPut = {*buffer, false};
+                schedule([valToPut, bounded_buffer = data.get_buffer()](auto continuation) {
+                    bounded_buffer->buffer->put(valToPut, [continuation] {
                         VMM::vmm_off();
                         continuation(1);
                     });
