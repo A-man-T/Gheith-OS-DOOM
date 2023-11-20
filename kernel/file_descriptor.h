@@ -166,8 +166,7 @@ class FileDescriptor {
                             if (!data.eof) {
                                 *buffer = data.data;
                             } else {
-                                CharWrapper value = {'\0', true};
-                                bounded_buffer->buffer->put(value, []{});
+                                bounded_buffer->buffer->put(data, []{});
                             }
                         });
                     });
