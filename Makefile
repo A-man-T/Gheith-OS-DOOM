@@ -4,9 +4,10 @@ UTCS_ID ?= $(shell pwd | sed -e 's/.*_//')
 
 MY_TESTS = ${addprefix ${UTCS_ID},${TEST_EXTS}}
 
-TESTS_DIR ?= .
+TESTS_DIR ?= tests
 
-POSSIBLE_TESTS = ${notdir ${basename ${wildcard ${TESTS_DIR}/*${firstword ${TEST_EXTS}}}}}
+TEST_CATEGORIES = ${sort ${notdir ${basename ${wildcard ${TESTS_DIR}/*}}}}
+POSSIBLE_TESTS = ${foreach C,${TEST_CATEGORIES},${addprefix $C.,${basename ${notdir ${wildcard ${TESTS_DIR}/$C/*${firstword ${TEST_EXTS}}}}}}}
 TESTS = ${sort ${POSSIBLE_TESTS}}
 TEST_OKS = ${addsuffix .ok,${TESTS}}
 TEST_RESULTS = ${addsuffix .result,${TESTS}}
@@ -23,7 +24,6 @@ ORIGIN_REPO=${shell echo ${ORIGIN_URL} | sed -e 's/.*://'}
 STUDENT_NAME=${shell echo ${ORIGIN_REPO} | sed -e 's/.*_//'}
 PROJECT_NAME=${shell echo ${ORIGIN_REPO} | sed -e 's/_${STUDENT_NAME}$$//'}
 GIT_SERVER=${shell echo ${ORIGIN_URL} | sed -e 's/:.*//'}
-
 
 # customize by setting environment variables
 QEMU_ACCEL ?= tcg,thread=multi
@@ -175,13 +175,13 @@ BLOCK_SIZE = 1024
 
 ${TEST_DATA} : %.data : Makefile
 	@rm -f $*.data
-	mkfs.ext2 -q -b ${BLOCK_SIZE} -i ${BLOCK_SIZE} -d ${TESTS_DIR}/$*.dir  -I 128 -r 0 -t ext2 $*.data 10m
+	mkfs.ext2 -q -b ${BLOCK_SIZE} -i ${BLOCK_SIZE} -d ${TESTS_DIR}/${subst .,/,$*}.dir  -I 128 -r 0 -t ext2 $*.data 10m
 
 ${TEST_OUTS} : %.out : Makefile %.raw
 	-egrep '^\*\*\*' $*.raw > $*.out 2> /dev/null || true
 
-${TEST_DIFFS} : %.diff : Makefile %.out ${TESTS_DIR}/%.ok
-	-(diff -wBb $*.out ${TESTS_DIR}/$*.ok > $*.diff 2> /dev/null || true)
+${TEST_DIFFS} : %.diff : Makefile %.out
+	-(diff -wBb $*.out ${TESTS_DIR}/${subst .,/,$*}.ok > $*.diff 2> /dev/null || true)
 
 ${TEST_RESULTS} : %.result : Makefile %.diff
 	(test -z "`cat $*.diff`" && echo "pass" > $*.result) || echo "fail" > $*.result
