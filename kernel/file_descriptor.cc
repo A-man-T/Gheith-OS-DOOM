@@ -85,6 +85,6 @@ FileDescriptor::~FileDescriptor() {
         pipe->has_closed_all_writers = true;
 
         CharWrapper value = {'\0', true};
-        pipe->buffer->put(value, []{});
+        pipe->buffer.put(value, []{});
     }
 }

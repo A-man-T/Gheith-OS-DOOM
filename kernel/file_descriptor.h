@@ -16,12 +16,11 @@ struct CharWrapper {
 };
 
 struct PipeBuffer {
-    Shared<BoundedBuffer<CharWrapper>> buffer;
-
-    bool has_closed_all_writers;
-
+    BoundedBuffer<CharWrapper> buffer;
+    bool has_closed_all_writers = false;
     Atomic<int> bytesInBuffer{0};
-    PipeBuffer(Shared<BoundedBuffer<CharWrapper>> buffer) : buffer{buffer} {}
+    PipeBuffer(int size) : buffer(size){
+    }
 };
 
 class FileDescriptor {
@@ -160,12 +159,12 @@ class FileDescriptor {
                 }
                 data.get_buffer()->bytesInBuffer.add_fetch(-1);
                 schedule([buffer, bounded_buffer = data.get_buffer()](auto continuation) {
-                    bounded_buffer->buffer->get([buffer, continuation, bounded_buffer](auto data) {
+                    bounded_buffer->buffer.get([buffer, continuation, bounded_buffer](auto data) {
                         continuation((data.eof) ? 0 : 1, [buffer, data, bounded_buffer] {
                             if (!data.eof) {
                                 *buffer = data.data;
                             } else {
-                                bounded_buffer->buffer->put(data, []{});
+                                bounded_buffer->buffer.put(data, []{});
                             }
                         });
                     });
@@ -200,7 +199,7 @@ class FileDescriptor {
                 data.get_buffer()->bytesInBuffer.add_fetch(1);
                 CharWrapper valToPut = {*buffer, false};
                 schedule([valToPut, bounded_buffer = data.get_buffer()](auto continuation) {
-                    bounded_buffer->buffer->put(valToPut, [continuation] {
+                    bounded_buffer->buffer.put(valToPut, [continuation] {
                         VMM::vmm_off();
                         continuation(1);
                     });
