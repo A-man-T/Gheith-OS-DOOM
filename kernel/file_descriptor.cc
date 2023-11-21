@@ -85,7 +85,11 @@ bool FileDescriptor::is_tty() {
 FileDescriptor::~FileDescriptor() {
    
     if(type == Type::PipeWrite){
-        data.get_buffer()->has_closed_all_writers = true;
+        auto pipe = data.get_buffer();
+        pipe->has_closed_all_writers = true;
+
+        CharWrapper value = {'\0', true};
+        pipe->buffer.put(value, []{});
     }
 }
 

@@ -10,7 +10,7 @@
 // or -1 if the offset is negative and/or on an error (NOT offset - 1)
 int lseek(const int fd, const int offset, const int whence)
 {
-    Process* process = active_processes.mine();
+    Process * process = active_processes.mine();
     auto descriptor_pointer = process->file_descriptors.get(fd);
     if (descriptor_pointer == nullptr) {
         return -1;

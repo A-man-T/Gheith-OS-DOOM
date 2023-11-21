@@ -422,8 +422,7 @@ int wrapped_sys_handler(uint32_t syscall_type, uint32_t* interrupt_frame) {
                 return -1;
             }
 
-            auto bounded_buffer = Shared<BoundedBuffer<char>>::make(100);
-            auto buffer = Shared<PipeBuffer>::make(bounded_buffer);
+            auto buffer = Shared<PipeBuffer>::make(100);
             *descriptors[0] = process->file_descriptors.alloc(FileDescriptor::from_bounded_buffer(buffer, false));
             *descriptors[1] = process->file_descriptors.alloc(FileDescriptor::from_bounded_buffer(buffer, true));
 
