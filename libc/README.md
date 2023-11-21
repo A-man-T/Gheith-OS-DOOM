@@ -25,9 +25,10 @@ Build steps:
     $ ../src/configure --target=i386-pc-gheithos --disable-multilib --prefix=$PWD/../install
     ```
 -   Finally, build newlib by running `make`, and install it with `make install`.
--   TODO compile instructions - need to clean up this command
+-   To compile a program using our build of Newlib, use the provided script in `libc/gheithos-gcc`, which will add the proper options to build with our libc. Your user code files should look like a normal libc program you would run on Linux (same headers). There is no provided separate linker; just use gcc as the linker by passing in object files, and if you need separate linker flags, use `-Wl,--linker-flag`. Example usage:
+
     ```
-    $ gcc -T gheithos.ld -Wl,-melf_i386 -static-libgcc -nostdlib -static -isystem $PWD/install/i386-pc-gheithos/include -L$PWD/install/i386-pc-gheithos/lib -m32 -o <output binary> <input file(s)> $PWD/install/i386-pc-gheithos/lib/crt0.o -lc -lm
+    $ ./libc/gheithos-gcc -o testing testing.c
     ```
 
 ## musl
