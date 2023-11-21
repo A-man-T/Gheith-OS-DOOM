@@ -235,11 +235,17 @@ ${TEST_FAILS} : %.fail : loop_warning.% %
 before_test:
 	rm -f *.result *.time *.out *.raw *.failure
 
-test: before_test Makefile ${TESTS} ${TEST_TARGETS} ;
-	-@echo ""
-	-@echo -n "$$(basename $$(pwd)) "
-	-@echo "pass:`(grep pass *.result | wc -l) || echo 0`/`(ls *.result | wc -l) || echo 0`"
-	-@echo ""
+test: before_test Makefile ${TESTS} ${TEST_TARGETS}
+	@echo ""
+	@echo -n "$$(basename $$(pwd)) "
+	@passed_tests=$$(grep pass *.result | wc -l); \
+	total_tests=$$(ls *.result | wc -l); \
+	echo "pass:$$passed_tests/$$total_tests"; \
+	if [ "$$passed_tests" -ne "$$total_tests" ]; then \
+		exit 1; \
+	fi
+	@echo ""
+
 
 test.loop: loop_warning.test ${TEST_LOOPS}
 
