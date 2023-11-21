@@ -1,3 +1,6 @@
+if HAVE_LIBC_SYS_GHEITHOS_DIR
+include %D%/gheithos/Makefile.inc
+endif
 if HAVE_LIBC_SYS_A29KHIF_DIR
 include %D%/a29khif/Makefile.inc
 endif

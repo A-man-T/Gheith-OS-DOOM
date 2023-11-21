@@ -1,0 +1,3 @@
+#!/bin/sh
+
+gcc -m32 -mno-sse -fno-stack-protector -Wl,-melf_i386 $@

@@ -426,6 +426,9 @@ fi
 # THIS TABLE IS ALPHA SORTED.  KEEP IT THAT WAY.
 
 case "${host}" in
+  i386-pc-gheithos*)
+	sys_dir=gheithos
+	;;
   *-*-cygwin*)
 	posix_dir=posix
 	xdr_dir=xdr
