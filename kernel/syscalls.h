@@ -11,3 +11,6 @@ inline constexpr int SEEK_END = 2;
 // Returns the resulting offset location as measured in bytes from the beginning of the file,
 // or -1 if the offset is negative and/or on an error (NOT offset - 1)
 int lseek(const int fd, const int offset, const int whence);
+
+// Determines whether the file descriptor uses the terminal. Stdin, stdout, and stderr are all terminals.
+bool isatty(const int fd_num);

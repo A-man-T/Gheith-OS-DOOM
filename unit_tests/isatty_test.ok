@@ -1,0 +1,4 @@
+*** Test 1: testing fds 0, 1, and 2 return isatty = true
+*** Passed test 1
+*** Test 2: testing closing fd 0 or 2 and opening new fds there returns isatty = false
+*** Passed test 2
