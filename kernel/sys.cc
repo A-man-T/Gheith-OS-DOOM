@@ -15,6 +15,7 @@
 #include "unique_ptr.h"
 #include "utils.h"
 #include "vmm.h"
+#include "syscalls.h"
 
 int wrapped_sys_handler(uint32_t syscall_type, uint32_t* interrupt_frame) {
     auto process = active_processes.mine();
@@ -438,6 +439,13 @@ int wrapped_sys_handler(uint32_t syscall_type, uint32_t* interrupt_frame) {
             child->is_killed = true;
             child->kill_argument = sys_args[0];
             return 0;
+        }
+
+        case 1029: { // int lseek(int fd, int offset, int whence)
+            if (!validate_address(sys_args, 3)) {
+                return -1;
+            }
+            return lseek(sys_args[0], sys_args[1], sys_args[2]);
         }
 
         default:
