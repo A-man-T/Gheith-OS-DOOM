@@ -1,0 +1,12 @@
+*** mounting drive 1
+*** checking /
+*** directory / is ok
+*** checking sbin
+*** directory sbin is ok
+*** file init is ok
+*** loading init
+*** entry 6000b1
+*** user esp 7fe0000
+*** hello, user
+*** looking normal
+*** passed 6 checks
