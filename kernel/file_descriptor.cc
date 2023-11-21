@@ -78,6 +78,10 @@ bool FileDescriptor::uses_buffer() {
     return type == Type::PipeRead || type == Type::PipeWrite;
 }
 
+bool FileDescriptor::is_tty() {
+    return type == Type::StdIn || type == Type::StdOut || type == Type::StdErr;
+}
+
 FileDescriptor::~FileDescriptor() {
    
     if(type == Type::PipeWrite){
@@ -88,3 +92,4 @@ FileDescriptor::~FileDescriptor() {
         pipe->buffer.put(value, []{});
     }
 }
+
