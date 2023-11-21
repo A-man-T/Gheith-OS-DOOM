@@ -9,12 +9,14 @@
 #include "smp.h"
 
 OutputStream<char>* Debug::sink = 0;
+InputStream<char>* Debug::source = 0;
 bool Debug::debugAll = false;
 bool Debug::shutdown_called = false;
 Atomic<uint32_t> Debug::checks{0};
 
-void Debug::init(OutputStream<char>* sink) {
+void Debug::init(OutputStream<char>* sink, InputStream<char> *source) {
     Debug::sink = sink;
+    Debug::source = source;
 }
 
 static SpinLock lock{};
@@ -93,4 +95,8 @@ void Debug::debug(const char* fmt, ...) {
 
 void Debug::missing(const char* file, int line) {
     panic("*** Missing code at %s:%d\n", file, line);
+}
+
+char Debug::getchar() {
+    return source->get();
 }
