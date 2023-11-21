@@ -1,0 +1,25 @@
+name: Kernel Tests
+
+on: [push, pull_request] # This triggers the workflow on push and pull request events for any branch
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: configure
+      run: ./configure
+
+    - name: make
+      run: make
+
+    - name: Run make -s test in each subfolder
+      run: |
+        for dir in tests/*; do
+          if [ -d "$dir" ]; then
+            echo "Running make -s test in $dir"
+            (TESTS_DIR="$dir" make -s test)
+          fi
+        done
