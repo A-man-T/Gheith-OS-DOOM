@@ -3,6 +3,6 @@
 *.a
 *.so
 *.so.1
-config.mak
+dist
 lib/musl-gcc.specs
 /obj/
