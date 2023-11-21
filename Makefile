@@ -52,7 +52,7 @@ QEMU_FLAGS = -no-reboot \
 
 TIME = $(shell which time)
 
-.PHONY: ${TESTS} sig test tests all clean ${TEST_TARGETS} help qemu_config_flags qemu_cmd before_test history
+.PHONY: ${TESTS} sig test tests all clean ${TEST_TARGETS} help qemu_config_flags qemu_cmd before_test history libc
 
 all : the_kernel;
 
@@ -230,7 +230,7 @@ ${TEST_FAILS} : %.fail : loop_warning.% %
 	done; \
 	echo ""; \
 	echo "$$(basename $$(pwd)) $* $$pass/${LOOP_LIMIT}"; \
-	echo ""	
+	echo ""
 
 before_test:
 	rm -f *.result *.time *.out *.raw *.failure
@@ -248,6 +248,15 @@ test: before_test Makefile ${TESTS} ${TEST_TARGETS}
 
 
 test.loop: loop_warning.test ${TEST_LOOPS}
+
+libc: export PATH := ${PWD}/libc/newlib/build_tools:${PATH}
+libc:
+	if [ ! -d libc/newlib/build ]; then \
+		rm -r libc/newlib/install; \
+		mkdir libc/newlib/build; \
+		(cd libc/newlib/build && ../src/configure --target=i386-pc-gheithos --disable-multilib --prefix=${PWD}/libc/newlib/install); \
+	fi
+	(cd libc/newlib/build && make && make install)
 
 failed:
 	-@for i in "`grep -l fail *.result`"; do \
