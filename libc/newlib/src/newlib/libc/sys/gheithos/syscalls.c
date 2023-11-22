@@ -1,11 +1,38 @@
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <sys/fcntl.h>
-#include <sys/times.h>
-#include <sys/errno.h>
-#include <sys/time.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/errno.h>
+#include <sys/fcntl.h>
+#include <sys/stat.h>
+#include <sys/time.h>
+#include <sys/times.h>
+#include <sys/types.h>
+
+#include "sys/gheithos.h"
+
+#define SYS_EXIT 0
+#define SYS_FORK 2
+#define SYS_SHUTDOWN 7
+#define SYS_YIELD 998
+#define SYS_JOIN 999
+#define SYS_EXECL 1000
+#define SYS_KILL 1027
+#define SYS_SEM 1001
+#define SYS_UP 1002
+#define SYS_DOWN 1003
+#define SYS_SEM_CLOSE 1007
+#define SYS_SIMPLE_SIGNAL 1004
+#define SYS_SIGRETURN 1006
+#define SYS_SIMPLE_MMAP 1005
+#define SYS_SIMPLE_MUNMAP 1008
+#define SYS_CHDIR 1020
+#define SYS_OPEN 1021
+#define SYS_CLOSE 1022
+#define SYS_LEN 1023
+#define SYS_READ 1024
+#define SYS_WRITE 1025
+#define SYS_PIPE 1026
+#define SYS_LSEEK 1029
+#define SYS_DUP 1028
 
 static inline long __syscall0(long n) {
     unsigned long __ret;
@@ -112,22 +139,49 @@ static inline long __syscall6(long n, long a1, long a2, long a3, long a4, long a
     return __ret;
 }
 
+static inline long __syscall_varargs(long n, const void **args) {
+    unsigned long __ret;
+    __asm__ __volatile__(
+        "mov %%esp, %%esi;"
+        "mov %2, %%esp;"
+        "int $48;"
+        "mov %%esi, %%esp;"
+        : "=a"(__ret)
+        : "a"(n), "r"((long)&args[-1])
+        : "memory");
+    return __ret;
+}
+
+// TODO errno?
+
+// syscalls required by newlib
 void _exit(int code) {
-    __syscall1(0, code);
+    __syscall1(SYS_EXIT, code);
 }
 
 int close(int file) {
-    return __syscall1(1007, file);
+    return __syscall1(SYS_CLOSE, file);
 }
 
 char *environ[] = {0};
-int execve(char *name, char **argv, char **env) {
-    // TODO
+int _execve(const char *name, const char **argv, const char **env) {
+    // TODO remove fixed upper limit once execve added
+    // TODO environment?
+
+    const char *args[100];
+    args[0] = name;
+    for (int i = 0; i < 99; i++) {
+        args[i + 1] = argv[i];
+        if (argv[i] == 0) {
+            return __syscall_varargs(SYS_EXECL, (const void **)args);
+        }
+    }
+
     return -1;
 }
 
 int fork() {
-    return __syscall0(2);
+    return __syscall0(SYS_FORK);
 }
 
 int fstat(int file, struct stat *st) {
@@ -146,8 +200,8 @@ int isatty(int file) {
 }
 
 int kill(int pid, int sig) {
-    // TODO pid
-    return __syscall1(1027, sig);
+    // TODO kill by pid
+    return __syscall1(SYS_KILL, sig);
 }
 
 int link(char *old, char *new) {
@@ -156,17 +210,17 @@ int link(char *old, char *new) {
 }
 
 int lseek(int file, int ptr, int dir) {
-    return 0;
+    return __syscall3(SYS_LSEEK, file, ptr, dir);
 }
 
 int open(const char *name, int flags, ...) {
     // TODO flags
-    // TODO varargs???
-    return __syscall1(1021, (long)name);
+    // TODO varargs?
+    return __syscall1(SYS_OPEN, (long)name);
 }
 
 int read(int file, char *ptr, int len) {
-    return __syscall3(1024, file, (long)ptr, len);
+    return __syscall3(SYS_READ, file, (long)ptr, len);
 }
 
 caddr_t sbrk(int incr) {
@@ -174,10 +228,10 @@ caddr_t sbrk(int incr) {
         incr += 4096 - (incr % 4096);
     }
 
-    const char* stack_low = (char*)(0xF0000000-1024*1024);
+    const char *stack_low = (char *)(0xF0000000 - 1024 * 1024);
     extern char _end;
-    static char*heap_end = 0;
-    char* prev_heap_end;
+    static char *heap_end = 0;
+    char *prev_heap_end;
 
     if (heap_end == 0) {
         heap_end = &_end;
@@ -188,7 +242,9 @@ caddr_t sbrk(int incr) {
     }
 
     // mmap the new segment
-    __syscall3(1005, (long)heap_end, incr, -1);
+    if (simple_mmap(heap_end, incr, -1, 0) == 0) {
+        return (caddr_t)-1;
+    }
     heap_end += incr;
 
     return (caddr_t)prev_heap_end;
@@ -210,15 +266,76 @@ int unlink(char *name) {
 }
 
 int wait(int *status) {
-    // TODO
-    return -1;
+    // TODO proper wait
+    return __syscall0(SYS_JOIN);
 }
 
 int write(int file, char *ptr, int len) {
-    return __syscall3(1025, file, (long)ptr, len);
+    return __syscall3(SYS_WRITE, file, (long)ptr, len);
 }
 
 int gettimeofday(struct timeval *p, void *z) {
     // TODO
     return 0;
+}
+
+// other syscalls
+void shutdown(void) {
+    __syscall0(SYS_SHUTDOWN);
+}
+
+void yield(void) {
+    __syscall0(SYS_YIELD);
+}
+
+// semaphores
+int sem(unsigned int initial_value) {
+    return __syscall1(SYS_SEM, initial_value);
+}
+
+int up(unsigned int num) {
+    return __syscall1(SYS_UP, num);
+}
+
+int down(unsigned int num) {
+    return __syscall1(SYS_DOWN, num);
+}
+
+int sem_close(unsigned int num) {
+    return __syscall1(SYS_SEM_CLOSE, num);
+}
+
+// signals
+void simple_signal(void (*handler)(int, unsigned int)) {
+    __syscall1(SYS_SIMPLE_SIGNAL, (long)handler);
+}
+
+int sigreturn() {
+    return __syscall0(SYS_SIGRETURN);
+}
+
+// mmap
+void *simple_mmap(void *address, unsigned int size, int fd, unsigned int offset) {
+    return (void *)__syscall4(SYS_SIMPLE_MMAP, (long)address, size, fd, offset);
+}
+
+int simple_munmap(void *address) {
+    return __syscall1(SYS_SIMPLE_MUNMAP, (long)address);
+}
+
+// files
+int chdir(const char *path) {
+    return __syscall1(SYS_CHDIR, (long)path);
+}
+
+int len(int fd) {
+    return __syscall1(SYS_LEN, fd);
+}
+
+int pipe(int fds[2]) {
+    return __syscall2(SYS_PIPE, (long)&fds[1], (long)&fds[0]);
+}
+
+int dup(int fd) {
+    return __syscall1(SYS_DUP, fd);
 }
