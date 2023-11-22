@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 LIBC_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 INSTALL_DIR=$LIBC_DIR/newlib/install/i386-pc-gheithos
