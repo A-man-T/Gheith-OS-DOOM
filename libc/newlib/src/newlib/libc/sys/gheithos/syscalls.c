@@ -288,6 +288,10 @@ void yield(void) {
     __syscall0(SYS_YIELD);
 }
 
+int join(void) {
+    return __syscall0(SYS_JOIN);
+}
+
 // semaphores
 int sem(unsigned int initial_value) {
     return __syscall1(SYS_SEM, initial_value);

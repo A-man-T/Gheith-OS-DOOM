@@ -4,6 +4,7 @@
 
 void shutdown(void);
 void yield(void);
+int join(void);
 
 // semaphores
 int sem(unsigned int initial_value);

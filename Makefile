@@ -52,7 +52,7 @@ QEMU_FLAGS = -no-reboot \
 
 TIME = $(shell which time)
 
-.PHONY: ${TESTS} sig test tests all clean ${TEST_TARGETS} help qemu_config_flags qemu_cmd before_test history libc
+.PHONY: ${TESTS} sig test tests all clean ${TEST_TARGETS} help qemu_config_flags qemu_cmd before_test history libc ${TEST_CLEANS} ${TEST_BUILDS}
 
 all : the_kernel;
 
@@ -160,7 +160,7 @@ qemu_config_flags:
 the_kernel :
 	@$(MAKE) -C kernel --no-print-directory build/kernel.img
 
-clean:
+clean : ${TEST_CLEANS}
 	rm -rf *.diff *.raw *.out *.result *.kernel *.failure *.time *.data
 	(make -C kernel clean)
 
@@ -187,7 +187,13 @@ ${TEST_RESULTS} : %.result : Makefile %.diff
 	(test -z "`cat $*.diff`" && echo "pass" > $*.result) || echo "fail" > $*.result
 	echo "$* `cat $*.result` `cat $*.time` [`qemu-system-i386 --version | head -n 1`] [`g++ --version | head -n 1`] [`/bin/date`]" >> history
 
-${TEST_TARGETS} : %.test : Makefile %.result
+${TEST_CLEANS} : %.clean :
+	TEST_DIR=${TESTS_DIR}/${subst .,/,$*}.dir ${MAKE} -f Makefile.test clean
+
+${TEST_BUILDS} : %.build :
+	TEST_DIR=${TESTS_DIR}/${subst .,/,$*}.dir ${MAKE} -f Makefile.test all
+
+${TEST_TARGETS} : %.test : Makefile %.result | %.build
 	@echo "`cat $*.result` `cat $*.time`"
 
 OTHER_USERS = ${shell who | sed -e 's/ .*//' | sort | uniq}

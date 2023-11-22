@@ -1,12 +1,15 @@
-#include "libc.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/gheithos.h>
+#include <unistd.h>
 
-#define ASSERT(c) do {                                       \
-    if (!(c)) {                                              \
-        printf("*** failure at %s:%d\n",__FILE__, __LINE__); \
-        exit(-1);                                            \
-    }                                                        \
-} while (0)
-    
+#define ASSERT(c)                                                 \
+    do {                                                          \
+        if (!(c)) {                                               \
+            printf("*** failure at %s:%d\n", __FILE__, __LINE__); \
+            exit(-1);                                             \
+        }                                                         \
+    } while (0)
 
 int checked_fork(char* file, int line) {
     int id = fork();
@@ -31,10 +34,10 @@ int main(int argc, char** argv) {
     if (FORK() == 0) {
         /* child */
         printf("*** child2\n");
-        *((int*) 666) = 13;
+        *((int*)666) = 13;
     }
     printf("*** parent2 %d\n", join());
-    printf("*** va2 %d\n", *((int*) 0xF0000800));
+    printf("*** va2 %d\n", *((int*)0xF0000800));
 
     printf("*** (3) checking preemption\n");
     if (FORK() == 0) {
@@ -42,7 +45,8 @@ int main(int argc, char** argv) {
         printf("*** child3\n");
         if (FORK() == 0) {
             /* grand child */
-            while(1);
+            while (1)
+                ;
         }
         exit(777);
     }
