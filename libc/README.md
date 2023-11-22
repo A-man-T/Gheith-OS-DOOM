@@ -4,7 +4,7 @@
 
 Newlib is our preferred libc to use here. Building it is a more involved process than musl, but it works better with our OS's available features.
 
-For most use you should not need the instructions here, and can just use the `make libc` command in the top level folder. It will take a while to run the first time, but then will go faster.
+For most use you should not need the instructions here. If you make any changes to libc, then you will have to run `make libc` in the top level folder so that the updated version can be linked with when building executables. It will take a while to run the first time, but then will go faster.
 
 The build system in Newlib uses Autotools for everything, which will work with regular make once the Makefiles are generated, but to use Autotools to generate these requires a specific version, 2.69. If you need to make an edit to the Autotools files but don't want to install this version, please contact the Libc team and we can help regenerate these files. This should only be necessary if you need to edit any of the build system for whatever reason; editing existing files will work fine. If you do edit Automake files and want to set it up, be sure to add the Autotools 2.69 to your PATH, and then run `autoreconf` from the `libc/newlib/src/newlib` folder.
 
