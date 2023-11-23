@@ -1,0 +1,6 @@
+*** Was able to exec init!
+*** Made it to second!
+*** argv[0] = argv0
+*** argv[1] = argv1
+*** envp[0] = envp0
+*** envp[1] = envp1
