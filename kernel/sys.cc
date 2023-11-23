@@ -510,7 +510,7 @@ void SYS::init(void) {
     IDT::trap(48, (uint32_t)sysHandler_, 3);
 }
 
-int32_t SYS::execve(const char* pathname, char* const argv[], char* const envp[], bool is_initial) {
+int32_t SYS::execve(const char* pathname, const char* const argv[], const char* const envp[], bool is_initial) {
     Process* new_process = nullptr;
 
     {

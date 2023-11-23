@@ -155,7 +155,7 @@ void write_stack_data(T data, uint32_t& address, uint32_t& current_block, uint32
     address += sizeof(T);
 }
 
-uint32_t set_up_stack(uint32_t directory_address, uint32_t total_length, char* const argv[], uint32_t n_args, char* const envp[], uint32_t n_envs) {
+uint32_t set_up_stack(uint32_t directory_address, uint32_t total_length, const char* const argv[], uint32_t n_args, const char* const envp[], uint32_t n_envs) {
     uint32_t* directory = (uint32_t*)directory_address;
 
     // argc, argv**, envp**, argv*[i] + nullptr, envp*[i] + nullptr
