@@ -518,14 +518,18 @@ int32_t SYS::execve(const char* pathname, char* const argv[], char* const envp[]
             return -1;
         }
 
-        int32_t n_args = Utils::validate_and_count(argv, is_initial);
-        if (n_args == -1) {
-            return -1;
+        int32_t n_args;
+        if (argv == nullptr) {
+            n_args = 0;
+        } else {
+            n_args = Utils::validate_and_count(argv, is_initial);
+            if (n_args == -1) {
+                return -1;
+            }
         }
 
         int32_t n_envs;
-        if (is_initial) {
-            // init will be launched with envp == nullptr, do not try to validate
+        if (envp == nullptr) {
             n_envs = 0;
         } else {
             n_envs = Utils::validate_and_count(envp, is_initial);
