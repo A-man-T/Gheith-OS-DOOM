@@ -101,8 +101,8 @@ Future<int> kernelMain(void) {
     d = new Ide(1);
     fs = new Ext2(d);
 
-    const char* args[] = {"/sbin/init", nullptr};
-    SYS::execl("/sbin/init", args, true);
+    char* const argv[] = {(char*)"/sbin/init", nullptr};
+    SYS::execve("/sbin/init", argv, nullptr, true);
 
     co_return -1;
 }

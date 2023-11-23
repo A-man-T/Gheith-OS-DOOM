@@ -80,15 +80,16 @@ int wrapped_sys_handler(uint32_t syscall_type, uint32_t* interrupt_frame) {
             }
         }
 
-        case 1000: {  // int execl(const char* path, const char** args)
+        case 1000: {  // int execve(const char* path, char *const argv[], char *const envp[])
             if (!validate_address(sys_args)) {
                 return -1;
             }
 
             auto path = reinterpret_cast<const char*>(sys_args[0]);
-            auto args = reinterpret_cast<const char**>(sys_args + 1);
+            auto argv = reinterpret_cast<char* const*>(sys_args[1]);
+            auto envp = reinterpret_cast<char* const*>(sys_args[2]);
 
-            return SYS::execl(path, args);
+            return SYS::execve(path, argv, envp);
         }
 
         case 1001: {  // int sem(uint32_t counter)
@@ -509,26 +510,44 @@ void SYS::init(void) {
     IDT::trap(48, (uint32_t)sysHandler_, 3);
 }
 
-int32_t SYS::execl(const char* path, const char** args, bool is_initial) {
+int32_t SYS::execve(const char* pathname, char* const argv[], char* const envp[], bool is_initial) {
     Process* new_process = nullptr;
 
     {
-        if (Utils::validate_and_count(path, is_initial) == -1) {
+        if (Utils::validate_and_count(pathname, is_initial) == -1) {
             return -1;
         }
 
-        int32_t n_args = Utils::validate_and_count(args, is_initial);
+        int32_t n_args = Utils::validate_and_count(argv, is_initial);
         if (n_args == -1) {
             return -1;
         }
 
+        int32_t n_envs;
+        if (is_initial) {
+            // init will be launched with envp == nullptr, do not try to validate
+            n_envs = 0;
+        } else {
+            n_envs = Utils::validate_and_count(envp, is_initial);
+            if (n_envs == -1) {
+                return -1;
+            }
+        }
+
         uint32_t total_length = 0;
+        for (int32_t i = 0; i < n_envs; i++) {
+            int32_t var_length = Utils::validate_and_count(envp[i], is_initial);
+            if (var_length == -1) {
+                return -1;
+            }
+            total_length += var_length + 1;
+        }
+
         for (int32_t i = 0; i < n_args; i++) {
-            int32_t arg_length = Utils::validate_and_count(args[i], is_initial);
+            int32_t arg_length = Utils::validate_and_count(argv[i], is_initial);
             if (arg_length == -1) {
                 return -1;
             }
-
             total_length += arg_length + 1;
         }
 
@@ -540,8 +559,8 @@ int32_t SYS::execl(const char* path, const char** args, bool is_initial) {
         // find and validate the ELF file
         auto previous_process = active_processes.mine();
         auto file = UniquePtr(previous_process == nullptr
-                                  ? find_fs_node(path)
-                                  : previous_process->lookup_path(path));
+                                  ? find_fs_node(pathname)
+                                  : previous_process->lookup_path(pathname));
         if (file == nullptr || !file->is_file()) {
             return -1;
         }
@@ -555,7 +574,7 @@ int32_t SYS::execl(const char* path, const char** args, bool is_initial) {
         auto smart_elf = UniquePtr<ElfLoadList::ElfLoad, ElfLoadList::ElfLoad[]>(elf_info.loads);
 
         uint32_t new_directory = VMM::new_directory();
-        uint32_t initial_esp = VMM::set_up_stack(n_args, total_length, args, new_directory);
+        uint32_t initial_esp = VMM::set_up_stack(new_directory, total_length, argv, n_args, envp, n_envs);
         vmm_on(new_directory);
 
         if (previous_process != nullptr) {
