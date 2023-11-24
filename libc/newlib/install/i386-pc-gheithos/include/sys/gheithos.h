@@ -21,3 +21,9 @@ int simple_munmap(void* address);
 
 // files
 int len(int fd);
+
+// device IO
+int read_mouse_event(void);
+int read_key_event(void);
+int is_pressed(unsigned int key);
+int is_held(unsigned int key);

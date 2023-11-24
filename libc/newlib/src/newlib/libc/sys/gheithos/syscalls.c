@@ -33,6 +33,10 @@
 #define SYS_PIPE 1026
 #define SYS_LSEEK 1029
 #define SYS_DUP 1028
+#define SYS_IS_PRESSED 2000
+#define SYS_READ_KEY_EVENT 2001
+#define SYS_READ_MOUSE_EVENT 2003
+#define SYS_IS_HELD 2004
 
 static inline long __syscall0(long n) {
     unsigned long __ret;
@@ -342,4 +346,20 @@ int pipe(int fds[2]) {
 
 int dup(int fd) {
     return __syscall1(SYS_DUP, fd);
+}
+
+int read_mouse_event(void) {
+    return __syscall0(SYS_READ_MOUSE_EVENT);
+}
+
+int read_key_event(void) {
+    return __syscall0(SYS_READ_KEY_EVENT);
+}
+
+int is_pressed(unsigned int key) {
+    return __syscall1(SYS_IS_PRESSED, key);
+}
+
+int is_held(unsigned int key) {
+    return __syscall1(SYS_IS_HELD, key);
 }

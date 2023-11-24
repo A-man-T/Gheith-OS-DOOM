@@ -1,5 +1,7 @@
-#include "libc.h"
 #include <stdbool.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/gheithos.h>
 
 #define ASSERT(c) do {                                       \
     if (!(c)) {                                              \
