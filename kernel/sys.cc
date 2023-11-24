@@ -16,6 +16,8 @@
 #include "utils.h"
 #include "vmm.h"
 #include "syscalls.h"
+#include "ps2.h"
+#include "input_events.h"
 
 int wrapped_sys_handler(uint32_t syscall_type, uint32_t* interrupt_frame) {
     auto process = active_processes.mine();
@@ -446,6 +448,31 @@ int wrapped_sys_handler(uint32_t syscall_type, uint32_t* interrupt_frame) {
                 return -1;
             }
             return lseek(sys_args[0], sys_args[1], sys_args[2]);
+        }
+        
+        case 2000: { // int is_pressed(int key) (0 is false)
+            if (!validate_address(sys_args)) { return -1; }
+            if (sys_args[0] < 1 || sys_args[0] > 125){
+                return -1;
+            }
+            return (int) PS2::is_pressed(sys_args[0]);
+        }
+
+        case 2001: { // read key event
+            uint32_t x = InputEventsUtils::ev_to_int(PS2::read_key_event());
+            return x;
+        }
+
+        case 2003: { // read mouse event 
+            return InputEventsUtils::ev_to_int(PS2::read_mouse_event());
+        }
+
+        case 2004: { // int is_held(int key) -> 0 is false
+            if (!validate_address(sys_args)) { return -1; }
+            if (sys_args[0] < 1 || sys_args[0] > 125){
+                return -1;
+            }
+            return (int) PS2::is_held(sys_args[0]);
         }
 
         default:

@@ -1,22 +1,22 @@
 SHELL := $(shell which bash)
-TEST_EXTS = .ok
 UTCS_ID ?= $(shell pwd | sed -e 's/.*_//')
-
-MY_TESTS = ${addprefix ${UTCS_ID},${TEST_EXTS}}
 
 TESTS_DIR ?= tests
 
 TEST_CATEGORIES = ${sort ${notdir ${basename ${wildcard ${TESTS_DIR}/*}}}}
-POSSIBLE_TESTS = ${foreach C,${TEST_CATEGORIES},${addprefix $C.,${basename ${notdir ${wildcard ${TESTS_DIR}/$C/*${firstword ${TEST_EXTS}}}}}}}
-TESTS = ${sort ${POSSIBLE_TESTS}}
+AUTO_TESTS = ${sort ${foreach C,${TEST_CATEGORIES},${addprefix $C.,${basename ${notdir ${wildcard ${TESTS_DIR}/$C/*.ok}}}}}}
+MANUAL_TESTS = ${foreach C,${TEST_CATEGORIES},${addprefix $C.,${basename ${notdir ${wildcard ${TESTS_DIR}/$C/*.dir}}}}}
+TESTS = ${sort ${AUTO_TESTS} ${MANUAL_TESTS}}
 TEST_OKS = ${addsuffix .ok,${TESTS}}
-TEST_RESULTS = ${addsuffix .result,${TESTS}}
-TEST_TARGETS = ${addsuffix .test,${TESTS}}
-TEST_OUTS = ${addsuffix .out,${TESTS}}
-TEST_RAWS = ${addsuffix .raw,${TESTS}}
-TEST_DIFFS = ${addsuffix .diff,${TESTS}}
-TEST_LOOPS = ${addsuffix .loop,${TESTS}}
-TEST_FAILS = ${addsuffix .fail,${TESTS}}
+TEST_RESULTS = ${addsuffix .result,${AUTO_TESTS}}
+TEST_TARGETS = ${addsuffix .test,${AUTO_TESTS}}
+TEST_CLEANS = ${addsuffix .clean,${TESTS}}
+TEST_BUILDS = ${addsuffix .build,${TESTS}}
+TEST_OUTS = ${addsuffix .out,${AUTO_TESTS}}
+TEST_RAWS = ${addsuffix .raw,${AUTO_TESTS}}
+TEST_DIFFS = ${addsuffix .diff,${AUTO_TESTS}}
+TEST_LOOPS = ${addsuffix .loop,${AUTO_TESTS}}
+TEST_FAILS = ${addsuffix .fail,${AUTO_TESTS}}
 TEST_DATA = ${addsuffix .data,${TESTS}}
 
 ORIGIN_URL=${shell git config --get remote.origin.url}
@@ -43,7 +43,7 @@ QEMU_CONFIG_FLAGS = -accel ${QEMU_ACCEL} \
 
 QEMU_FLAGS = -no-reboot \
 	     ${QEMU_CONFIG_FLAGS} \
-	     -nographic\
+		 -nographic \
 	     --monitor none \
 	     --serial file:$*.raw \
              -drive file=kernel/build/kernel.img,index=0,media=disk,format=raw \

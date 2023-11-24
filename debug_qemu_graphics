@@ -11,7 +11,8 @@ echo "   continue"
 time `make qemu_cmd` `make qemu_config_flags` \
              -s -S \
              -no-reboot \
-             -nographic \
+             --display sdl \
+             -serial mon:stdio \
              --monitor none \
              -d guest_errors \
              -D qemu.log \

@@ -100,7 +100,7 @@ Node* find_fs_node(const char* path, Node* relative_path, uint32_t depth) {
 Future<int> kernelMain(void) {
     d = new Ide(1);
     fs = new Ext2(d);
-
+    
     const char* args[] = {"/sbin/init", nullptr};
     SYS::execl("/sbin/init", args, true);
 
