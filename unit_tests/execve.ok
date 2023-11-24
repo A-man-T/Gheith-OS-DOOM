@@ -4,3 +4,6 @@
 *** argv[1] = argv1
 *** envp[0] = envp0
 *** envp[1] = envp1
+*** Was able to execve with null argv
+*** Was able to execve with null envp
+*** Was able to execve with null argv and envp

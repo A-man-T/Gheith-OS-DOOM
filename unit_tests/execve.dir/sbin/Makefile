@@ -1,4 +1,4 @@
-UTILS = init second
+UTILS = init second nullargv nullenvp nullargvenvp
 
 CFLAGS = -std=c99 -m32 -nostdlib -g -O2 -Wall -Werror
 
