@@ -1,4 +1,4 @@
-	# outb(int port, int val)
+	# outb(uint16_t port, uint8_t val)
 	.global outb
 outb:
 	push %edx
@@ -8,7 +8,7 @@ outb:
 	pop %edx
 	ret
 
-	# outl(int port, int val)
+	# outl(uint16_t port, uint32_t val)
         .global outl
 outl:
         mov 4(%esp),%dx
@@ -16,7 +16,7 @@ outl:
         outl %eax,%dx
         ret
 
-	# int inb(int port)
+	# uint8_t inb(uint16_t port)
 	.global inb
 inb:
 	push %edx
@@ -26,7 +26,7 @@ inb:
 	and $0xff,%eax
 	ret
 
-	# unsigned long inl(int port)
+	# uint32_t inl(uint16_t port)
 	.global inl
 inl:
 	push %edx

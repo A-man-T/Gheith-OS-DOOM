@@ -5,10 +5,10 @@
 
 extern "C" void resetEIP(void);
 
-extern "C" int inb(int port);
-extern "C" int inl(int port);
-extern "C" void outb(int port, int val);
-extern "C" void outl(int port, int val);
+extern "C" uint8_t inb(uint16_t port);
+extern "C" uint32_t inl(uint16_t port);
+extern "C" void outb(uint16_t port, uint8_t val);
+extern "C" void outl(uint16_t port, uint32_t val);
 
 extern "C" uint64_t rdmsr(uint32_t id);
 extern "C" void wrmsr(uint32_t id, uint64_t value);
@@ -20,6 +20,7 @@ extern "C" void vmm_global_on();
 extern "C" void apitHandler_(void);
 extern "C" void spuriousHandler_(void);
 extern "C" void pageFaultHandler_(void);
+extern "C" void PS2InterruptHandler_(void);
 
 extern "C" void* memcpy(void* dest, const void* src, size_t n);
 extern "C" void* bzero(void* dest, size_t n);

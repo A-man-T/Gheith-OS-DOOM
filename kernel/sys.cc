@@ -4,6 +4,7 @@
 
 #include "debug.h"
 #include "elf.h"
+#include "errno.h"
 #include "events.h"
 #include "idt.h"
 #include "kernel.h"
@@ -16,6 +17,8 @@
 #include "utils.h"
 #include "vmm.h"
 #include "syscalls.h"
+#include "ps2.h"
+#include "input_events.h"
 
 int wrapped_sys_handler(uint32_t syscall_type, uint32_t* interrupt_frame) {
     auto process = active_processes.mine();
@@ -26,7 +29,7 @@ int wrapped_sys_handler(uint32_t syscall_type, uint32_t* interrupt_frame) {
             if (validate_address(sys_args)) {
                 SYS::exit_process(sys_args[0]);
             } else {
-                SYS::exit_process(-1);
+                SYS::exit_process(-1 * EFAULT);
             }
         }
 
@@ -60,7 +63,7 @@ int wrapped_sys_handler(uint32_t syscall_type, uint32_t* interrupt_frame) {
         case 999: {  // int join();
             auto child = process->child_processes.remove();
             if (child == nullptr) {
-                return -1;
+                return -1 * ECHILD;
             }
 
             if (child->exit_code.await_ready()) {
@@ -82,7 +85,7 @@ int wrapped_sys_handler(uint32_t syscall_type, uint32_t* interrupt_frame) {
 
         case 1000: {  // int execve(const char* path, char *const argv[], char *const envp[])
             if (!validate_address(sys_args)) {
-                return -1;
+                return -1 * EFAULT;
             }
 
             auto path = reinterpret_cast<const char*>(sys_args[0]);
@@ -94,12 +97,12 @@ int wrapped_sys_handler(uint32_t syscall_type, uint32_t* interrupt_frame) {
 
         case 1001: {  // int sem(uint32_t counter)
             if (!validate_address(sys_args)) {
-                return -1;
+                return -1 * EFAULT;
             }
 
             auto process = active_processes.mine();
             if (!process->semaphores.can_alloc()) {
-                return -1;
+                return -1 * EMFILE;
             }
 
             auto id = process->semaphores.alloc(Shared<Semaphore>::make(sys_args[0]));
@@ -109,17 +112,17 @@ int wrapped_sys_handler(uint32_t syscall_type, uint32_t* interrupt_frame) {
 
         case 1002: {  // int up(int semaphore)
             if (!validate_address(sys_args)) {
-                return 0;
+                return -1 * EFAULT;
             }
 
             auto process = active_processes.mine();
             auto semaphore_pointer = process->semaphores.get(sys_args[0]);
             if (semaphore_pointer == nullptr) {
-                return -1;
+                return -1 * EBADF;
             }
             auto& semaphore = *semaphore_pointer;
             if(semaphore == nullptr) {
-                return -1;
+                return -1 * EBADF;
             }
             semaphore->up();
             return 0;
@@ -127,17 +130,17 @@ int wrapped_sys_handler(uint32_t syscall_type, uint32_t* interrupt_frame) {
 
         case 1003: {  // int down(int semaphore)
             if (!validate_address(sys_args)) {
-                return 0;
+                return -1 * EFAULT;
             }
 
             auto process = active_processes.mine();
             auto semaphore_pointer = process->semaphores.get(sys_args[0]);
             if (semaphore_pointer == nullptr) {
-                return -1;
+                return -1 * EBADF;
             }
             auto& semaphore = *semaphore_pointer;
             if(semaphore == nullptr) {
-                return -1;
+                return -1 * EBADF;
             }
 
             if (semaphore->await_ready()) {
@@ -154,23 +157,23 @@ int wrapped_sys_handler(uint32_t syscall_type, uint32_t* interrupt_frame) {
 
         case 1007: {  // int sem_close(int semaphore)
             if (!validate_address(sys_args)) {
-                return -1;
+                return -1 * EFAULT;
             }
 
             auto process = active_processes.mine();
             if (process->semaphores.remove(sys_args[0])) {
                 return 0;
             } else {
-                return -1;
+                return -1 * EBADF;
             }
         }
 
-        case 1004: {  // void simple_signal(void (*handler)(int, unsigned int))
+        case 1004: {  // int simple_signal(void (*handler)(int, unsigned int))
             if (!validate_address(sys_args)) {
-                return 0;
+                return -1 * EFAULT;
             }
             if (!validate_address(sys_args[0])) {
-                return 0;
+                return -1 * EFAULT;
             }
 
             active_processes.mine()->signal_handler = sys_args[0];
@@ -180,7 +183,7 @@ int wrapped_sys_handler(uint32_t syscall_type, uint32_t* interrupt_frame) {
         case 1006: {  // int sigreturn()
             auto process = active_processes.mine();
             if (!process->in_signal_handler) {
-                return -1;
+                return -1 * ECANCELED;
             }
 
             process->in_signal_handler = false;
@@ -189,12 +192,8 @@ int wrapped_sys_handler(uint32_t syscall_type, uint32_t* interrupt_frame) {
         }
 
         case 1005: {  // uint32_t simple_mmap(uint32_t addr, uint32_t size, int fd, uint32_t offset)
-            // simple_mmap has a different failure code for if the args are in
-            // unmapped memory
-            process->set_return(0);
-
             if (!validate_address(sys_args, 4)) {
-                return 0;
+                return -1 * EFAULT;
             }
 
             uint32_t start = sys_args[0];
@@ -208,7 +207,7 @@ int wrapped_sys_handler(uint32_t syscall_type, uint32_t* interrupt_frame) {
 
             uint32_t offset = sys_args[3];
             if (offset % PhysMem::FRAME_SIZE != 0) {
-                return 0;
+                return -1 * EINVAL;
             }
             auto fd_pointer = process->file_descriptors.get(file);
             if (fd_pointer == nullptr) {
@@ -216,7 +215,7 @@ int wrapped_sys_handler(uint32_t syscall_type, uint32_t* interrupt_frame) {
             }
             auto& fd = *fd_pointer;
             if (fd == nullptr || !fd->supports_offset()) {
-                return 0;
+                return -1 * EBADF;
             }
 
             uint32_t file_size = fd->get_length();
@@ -229,14 +228,14 @@ int wrapped_sys_handler(uint32_t syscall_type, uint32_t* interrupt_frame) {
 
         case 1008: {  // int simple_munmap(uint32_t address)
             if (!validate_address(sys_args)) {
-                return -1;
+                return -1* EFAULT;
             }
 
             auto process = active_processes.mine();
             if (process->memory_unmap(sys_args[0])) {
                 return 0;
             } else {
-                return -1;
+                return -1 * EINVAL;
             }
         }
 
@@ -253,13 +252,13 @@ int wrapped_sys_handler(uint32_t syscall_type, uint32_t* interrupt_frame) {
             delete previous_cwd;
 
             if (!validate_address(sys_args)) {
-                return -1;
+                return -1 * EFAULT;
             }
 
             // ensure that the path is all mapped and in user space memory
             auto path = reinterpret_cast<const char*>(sys_args[0]);
             if (Utils::validate_and_count(path) == -1) {
-                return -1;
+                return -1 * EFAULT;
             }
 
             if (previous_cwd_inode != 0) {
@@ -272,22 +271,22 @@ int wrapped_sys_handler(uint32_t syscall_type, uint32_t* interrupt_frame) {
 
         case 1021: {  // int open(const char* path)
             if (!validate_address(sys_args)) {
-                return -1;
+                return -1 * EFAULT;
             }
 
             auto path = reinterpret_cast<const char*>(sys_args[0]);
             if (Utils::validate_and_count(path) == -1) {
-                return -1;
+                return -1 * EFAULT;
             }
 
             auto process = active_processes.mine();
             if (!process->file_descriptors.can_alloc()) {
-                return -1;
+                return -1 * EMFILE;
             }
 
             auto node = process->lookup_path(path);
             if (node == nullptr) {
-                return -1;
+                return -1 * ENOENT;
             }
 
             return process->file_descriptors.alloc(FileDescriptor::from_node(node));
@@ -295,20 +294,20 @@ int wrapped_sys_handler(uint32_t syscall_type, uint32_t* interrupt_frame) {
 
         case 1022: {  // int close(int fd)
             if (!validate_address(sys_args)) {
-                return -1;
+                return -1 * EFAULT;
             }
 
             auto process = active_processes.mine();
             if (process->file_descriptors.remove(sys_args[0])) {
                 return 0;
             } else {
-                return -1;
+                return -1 * EBADF;
             }
         }
 
         case 1023: {  // int len(int fd)
             if (!validate_address(sys_args)) {
-                return -1;
+                return -1 * EFAULT;
             }
 
             auto process = active_processes.mine();
@@ -318,19 +317,19 @@ int wrapped_sys_handler(uint32_t syscall_type, uint32_t* interrupt_frame) {
             }
             auto& fd = *fd_pointer;
             if (fd == nullptr) {
-                return -1;
+                return -1 * EBADF;
             }
 
             if (fd->supports_offset()) {
                 return fd->get_length();
             } else {
-                return -1;
+                return -1 * EBADF;
             }
         }
 
         case 1024: {  // int read(int fd, void* buffer, uint n_bytes)
             if (!validate_address(sys_args, 3)) {
-                return -1;
+                return -1 * EFAULT;
             }
 
             if (sys_args[2] == 0) {
@@ -340,7 +339,7 @@ int wrapped_sys_handler(uint32_t syscall_type, uint32_t* interrupt_frame) {
             // only reading 1 byte at a time for now, but make sure the buffer is mapped
             auto buffer = reinterpret_cast<char*>(sys_args[1]);
             if (!validate_address(buffer)) {
-                return -1;
+                return -1 * EFAULT;
             }
             buffer[0] = buffer[0];
 
@@ -351,7 +350,7 @@ int wrapped_sys_handler(uint32_t syscall_type, uint32_t* interrupt_frame) {
             }
             auto& fd = *fd_pointer;
             if (fd == nullptr || !fd->is_readable()) {
-                return -1;
+                return -1 * EBADF;
             }
 
             return fd->read(buffer, 1, [process](auto schedule) {
@@ -371,7 +370,7 @@ int wrapped_sys_handler(uint32_t syscall_type, uint32_t* interrupt_frame) {
         case 1:
         case 1025: {  // int write(int fd, void* buffer, uint n_bytes)
             if (!validate_address(sys_args, 3)) {
-                return -1;
+                return -1 * EFAULT;
             }
 
             if (sys_args[2] == 0) {
@@ -381,7 +380,7 @@ int wrapped_sys_handler(uint32_t syscall_type, uint32_t* interrupt_frame) {
             // only reading 1 byte at a time for now, but make sure the buffer is mapped
             auto buffer = reinterpret_cast<char*>(sys_args[1]);
             if (!validate_address(buffer)) {
-                return -1;
+                return -1 * EFAULT;
             }
             (void)buffer[0];
 
@@ -392,7 +391,7 @@ int wrapped_sys_handler(uint32_t syscall_type, uint32_t* interrupt_frame) {
             }
             auto& fd = *fd_pointer;
             if (fd == nullptr || !fd->is_writable()) {
-                return -1;
+                return -1 * EBADF;
             }
 
             return fd->write(buffer, 1, [process](auto schedule) {
@@ -406,12 +405,12 @@ int wrapped_sys_handler(uint32_t syscall_type, uint32_t* interrupt_frame) {
 
         case 1026: {  // int pipe(int* write_fd, int* read_fd)
             if (!validate_address(sys_args, 2)) {
-                return -1;
+                return -1 * EFAULT;
             }
 
             auto descriptors = reinterpret_cast<uint32_t**>(sys_args);
             if (!validate_address(descriptors[0]) || !validate_address(descriptors[1])) {
-                return -1;
+                return -1 * EFAULT;
             }
 
             // ensure that they are mapped, if they aren't these will fault and return -1
@@ -420,7 +419,7 @@ int wrapped_sys_handler(uint32_t syscall_type, uint32_t* interrupt_frame) {
 
             auto process = active_processes.mine();
             if (!process->file_descriptors.can_alloc(2)) {
-                return -1;
+                return -1 * EMFILE;
             }
 
             auto buffer = Shared<PipeBuffer>::make(100);
@@ -432,12 +431,12 @@ int wrapped_sys_handler(uint32_t syscall_type, uint32_t* interrupt_frame) {
 
         case 1028: {  // int dup(int fd)
             if (!validate_address(sys_args)) {
-                return -1;
+                return -1 * EFAULT;
             }
 
             auto process = active_processes.mine();
             if (!process->file_descriptors.can_alloc()) {
-                return -1;
+                return -1 * EMFILE;
             }
 
             auto fd_pointer = process->file_descriptors.get(sys_args[0]);
@@ -446,7 +445,7 @@ int wrapped_sys_handler(uint32_t syscall_type, uint32_t* interrupt_frame) {
             }
             auto& fd = *fd_pointer;
             if (fd == nullptr) {
-                return -1;
+                return -1 * EBADF;
             }
 
             return process->file_descriptors.alloc(fd);
@@ -454,23 +453,27 @@ int wrapped_sys_handler(uint32_t syscall_type, uint32_t* interrupt_frame) {
 
         case 1027: {  // int kill(uint code)
             if (!validate_address(sys_args)) {
-                return -1;
+                return -1 * EFAULT;
             }
+
+            // If the kill code is in unmapped memory, we want EFAULT not ECHILD so have
+            // to dereference it before retrieving the child
+            int kill_code = sys_args[0];
 
             // TODO return -1 if child exited
             auto child = process->child_processes.get_front();
             if (child == nullptr || child->is_killed) {
-                return -1;
+                return -1 * ECHILD;
             }
 
             child->is_killed = true;
-            child->kill_argument = sys_args[0];
+            child->kill_argument = kill_code;
             return 0;
         }
 
         case 1029: { // int lseek(int fd, int offset, int whence)
             if (!validate_address(sys_args, 3)) {
-                return -1;
+                return -1 * EFAULT;
             }
             return lseek(sys_args[0], sys_args[1], sys_args[2]);
         }
@@ -480,6 +483,35 @@ int wrapped_sys_handler(uint32_t syscall_type, uint32_t* interrupt_frame) {
                 return -1;
             }
             return isatty(sys_args[0]);
+        }
+
+        case 2000: { // int is_pressed(int key) (0 is false)
+            if (!validate_address(sys_args)) {
+                return -1 * EFAULT;
+            }
+            if (sys_args[0] < 1 || sys_args[0] > 125){
+                return -1 * EINVAL;
+            }
+            return (int) PS2::is_pressed(sys_args[0]);
+        }
+
+        case 2001: { // read key event
+            uint32_t x = InputEventsUtils::ev_to_int(PS2::read_key_event());
+            return x;
+        }
+
+        case 2003: { // read mouse event 
+            return InputEventsUtils::ev_to_int(PS2::read_mouse_event());
+        }
+
+        case 2004: { // int is_held(int key) -> 0 is false
+            if (!validate_address(sys_args)) {
+                return -1 * EFAULT;
+            }
+            if (sys_args[0] < 1 || sys_args[0] > 125){
+                return -1 * EINVAL;
+            }
+            return (int) PS2::is_held(sys_args[0]);
         }
 
         default:
@@ -498,7 +530,7 @@ extern "C" int sysHandler(uint32_t syscall_type, uint32_t* frame) {
 
     // default error code return value, would be used in the page fault handler
     // if the syscall results in a segfault
-    process->set_return(-1);
+    process->set_return(-1 * EFAULT);
 
     process->set_return(wrapped_sys_handler(syscall_type, interrupt_frame));
     process->run();
@@ -515,7 +547,7 @@ int32_t SYS::execve(const char* pathname, const char* const argv[], const char* 
 
     {
         if (Utils::validate_and_count(pathname, is_initial) == -1) {
-            return -1;
+            return -1 * EFAULT;
         }
 
         int32_t n_args;
@@ -524,7 +556,7 @@ int32_t SYS::execve(const char* pathname, const char* const argv[], const char* 
         } else {
             n_args = Utils::validate_and_count(argv, is_initial);
             if (n_args == -1) {
-                return -1;
+                return -1 * EFAULT;
             }
         }
 
@@ -534,7 +566,7 @@ int32_t SYS::execve(const char* pathname, const char* const argv[], const char* 
         } else {
             n_envs = Utils::validate_and_count(envp, is_initial);
             if (n_envs == -1) {
-                return -1;
+                return -1 * EFAULT;
             }
         }
 
@@ -550,7 +582,7 @@ int32_t SYS::execve(const char* pathname, const char* const argv[], const char* 
         for (int32_t i = 0; i < n_args; i++) {
             int32_t arg_length = Utils::validate_and_count(argv[i], is_initial);
             if (arg_length == -1) {
-                return -1;
+                return -1 * EFAULT;
             }
             total_length += arg_length + 1;
         }
@@ -565,13 +597,16 @@ int32_t SYS::execve(const char* pathname, const char* const argv[], const char* 
         auto file = UniquePtr(previous_process == nullptr
                                   ? find_fs_node(pathname)
                                   : previous_process->lookup_path(pathname));
-        if (file == nullptr || !file->is_file()) {
-            return -1;
+        if (file == nullptr) {
+            return -1 * ENOENT;
+        }
+        if (!file->is_file()) {
+            return -1 * EACCES;
         }
 
         auto elf_info = ELF::validate(file);
         if (elf_info.is_invalid()) {
-            return -1;
+            return -1 * ENOEXEC;
         }
 
         // this will auto free the ELF data when it goes out of scope
@@ -603,7 +638,7 @@ int32_t SYS::execve(const char* pathname, const char* const argv[], const char* 
 
     new_process->run();
 
-    return 0;
+    return -1 * ECANCELED;
 }
 
 void SYS::exit_process(uint32_t exit_code) {

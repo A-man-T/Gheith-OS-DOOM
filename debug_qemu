@@ -1,6 +1,6 @@
 set -e
 
-UTCS_OPT=-O0 make clean the_kernel $1 $1.data
+UTCS_OPT=-O0 make clean the_kernel $1.build $1.data
 
 echo "in a different window:"
 echo "   'gdb kernel/build/kernel.kernel' or 'gdb $1.dir/sbin/init'"

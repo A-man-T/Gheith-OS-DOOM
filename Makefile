@@ -1,21 +1,22 @@
 SHELL := $(shell which bash)
-TEST_EXTS = .ok
 UTCS_ID ?= $(shell pwd | sed -e 's/.*_//')
 
-MY_TESTS = ${addprefix ${UTCS_ID},${TEST_EXTS}}
+TESTS_DIR ?= tests
 
-TESTS_DIR ?= .
-
-POSSIBLE_TESTS = ${notdir ${basename ${wildcard ${TESTS_DIR}/*${firstword ${TEST_EXTS}}}}}
-TESTS = ${sort ${POSSIBLE_TESTS}}
+TEST_CATEGORIES = ${sort ${notdir ${basename ${wildcard ${TESTS_DIR}/*}}}}
+AUTO_TESTS = ${sort ${foreach C,${TEST_CATEGORIES},${addprefix $C.,${basename ${notdir ${wildcard ${TESTS_DIR}/$C/*.ok}}}}}}
+MANUAL_TESTS = ${foreach C,${TEST_CATEGORIES},${addprefix $C.,${basename ${notdir ${wildcard ${TESTS_DIR}/$C/*.dir}}}}}
+TESTS = ${sort ${AUTO_TESTS} ${MANUAL_TESTS}}
 TEST_OKS = ${addsuffix .ok,${TESTS}}
-TEST_RESULTS = ${addsuffix .result,${TESTS}}
-TEST_TARGETS = ${addsuffix .test,${TESTS}}
-TEST_OUTS = ${addsuffix .out,${TESTS}}
-TEST_RAWS = ${addsuffix .raw,${TESTS}}
-TEST_DIFFS = ${addsuffix .diff,${TESTS}}
-TEST_LOOPS = ${addsuffix .loop,${TESTS}}
-TEST_FAILS = ${addsuffix .fail,${TESTS}}
+TEST_RESULTS = ${addsuffix .result,${AUTO_TESTS}}
+TEST_TARGETS = ${addsuffix .test,${AUTO_TESTS}}
+TEST_CLEANS = ${addsuffix .clean,${TESTS}}
+TEST_BUILDS = ${addsuffix .build,${TESTS}}
+TEST_OUTS = ${addsuffix .out,${AUTO_TESTS}}
+TEST_RAWS = ${addsuffix .raw,${AUTO_TESTS}}
+TEST_DIFFS = ${addsuffix .diff,${AUTO_TESTS}}
+TEST_LOOPS = ${addsuffix .loop,${AUTO_TESTS}}
+TEST_FAILS = ${addsuffix .fail,${AUTO_TESTS}}
 TEST_DATA = ${addsuffix .data,${TESTS}}
 
 ORIGIN_URL=${shell git config --get remote.origin.url}
@@ -23,7 +24,6 @@ ORIGIN_REPO=${shell echo ${ORIGIN_URL} | sed -e 's/.*://'}
 STUDENT_NAME=${shell echo ${ORIGIN_REPO} | sed -e 's/.*_//'}
 PROJECT_NAME=${shell echo ${ORIGIN_REPO} | sed -e 's/_${STUDENT_NAME}$$//'}
 GIT_SERVER=${shell echo ${ORIGIN_URL} | sed -e 's/:.*//'}
-
 
 # customize by setting environment variables
 QEMU_ACCEL ?= tcg,thread=multi
@@ -43,7 +43,7 @@ QEMU_CONFIG_FLAGS = -accel ${QEMU_ACCEL} \
 
 QEMU_FLAGS = -no-reboot \
 	     ${QEMU_CONFIG_FLAGS} \
-	     -nographic\
+		 -nographic \
 	     --monitor none \
 	     --serial file:$*.raw \
              -drive file=kernel/build/kernel.img,index=0,media=disk,format=raw \
@@ -52,7 +52,7 @@ QEMU_FLAGS = -no-reboot \
 
 TIME = $(shell which time)
 
-.PHONY: ${TESTS} sig test tests all clean ${TEST_TARGETS} help qemu_config_flags qemu_cmd before_test history
+.PHONY: ${TESTS} sig test tests all clean ${TEST_TARGETS} help qemu_config_flags qemu_cmd before_test history libc ${TEST_CLEANS} ${TEST_BUILDS}
 
 all : the_kernel;
 
@@ -160,7 +160,7 @@ qemu_config_flags:
 the_kernel :
 	@$(MAKE) -C kernel --no-print-directory build/kernel.img
 
-clean:
+clean : ${TEST_CLEANS}
 	rm -rf *.diff *.raw *.out *.result *.kernel *.failure *.time *.data
 	(make -C kernel clean)
 
@@ -175,19 +175,25 @@ BLOCK_SIZE = 1024
 
 ${TEST_DATA} : %.data : Makefile
 	@rm -f $*.data
-	mkfs.ext2 -q -b ${BLOCK_SIZE} -i ${BLOCK_SIZE} -d ${TESTS_DIR}/$*.dir  -I 128 -r 0 -t ext2 $*.data 10m
+	mkfs.ext2 -q -b ${BLOCK_SIZE} -i ${BLOCK_SIZE} -d ${TESTS_DIR}/${subst .,/,$*}.dir  -I 128 -r 0 -t ext2 $*.data 10m
 
 ${TEST_OUTS} : %.out : Makefile %.raw
 	-egrep '^\*\*\*' $*.raw > $*.out 2> /dev/null || true
 
-${TEST_DIFFS} : %.diff : Makefile %.out ${TESTS_DIR}/%.ok
-	-(diff -wBb $*.out ${TESTS_DIR}/$*.ok > $*.diff 2> /dev/null || true)
+${TEST_DIFFS} : %.diff : Makefile %.out
+	-(diff -wBb $*.out ${TESTS_DIR}/${subst .,/,$*}.ok > $*.diff 2> /dev/null || true)
 
 ${TEST_RESULTS} : %.result : Makefile %.diff
 	(test -z "`cat $*.diff`" && echo "pass" > $*.result) || echo "fail" > $*.result
 	echo "$* `cat $*.result` `cat $*.time` [`qemu-system-i386 --version | head -n 1`] [`g++ --version | head -n 1`] [`/bin/date`]" >> history
 
-${TEST_TARGETS} : %.test : Makefile %.result
+${TEST_CLEANS} : %.clean :
+	TEST_DIR=${TESTS_DIR}/${subst .,/,$*}.dir ${MAKE} -f Makefile.test clean
+
+${TEST_BUILDS} : %.build :
+	TEST_DIR=${TESTS_DIR}/${subst .,/,$*}.dir ${MAKE} -f Makefile.test all
+
+${TEST_TARGETS} : %.test : Makefile %.result | %.build
 	@echo "`cat $*.result` `cat $*.time`"
 
 OTHER_USERS = ${shell who | sed -e 's/ .*//' | sort | uniq}
@@ -230,18 +236,33 @@ ${TEST_FAILS} : %.fail : loop_warning.% %
 	done; \
 	echo ""; \
 	echo "$$(basename $$(pwd)) $* $$pass/${LOOP_LIMIT}"; \
-	echo ""	
+	echo ""
 
 before_test:
 	rm -f *.result *.time *.out *.raw *.failure
 
-test: before_test Makefile ${TESTS} ${TEST_TARGETS} ;
-	-@echo ""
-	-@echo -n "$$(basename $$(pwd)) "
-	-@echo "pass:`(grep pass *.result | wc -l) || echo 0`/`(ls *.result | wc -l) || echo 0`"
-	-@echo ""
+test: before_test Makefile ${TESTS} ${TEST_TARGETS}
+	@echo ""
+	@echo -n "$$(basename $$(pwd)) "
+	@passed_tests=$$(grep pass *.result | wc -l); \
+	total_tests=$$(ls *.result | wc -l); \
+	echo "pass:$$passed_tests/$$total_tests"; \
+	if [ "$$passed_tests" -ne "$$total_tests" ]; then \
+		exit 1; \
+	fi
+	@echo ""
+
 
 test.loop: loop_warning.test ${TEST_LOOPS}
+
+libc: export PATH := ${PWD}/libc/newlib/build_tools:${PATH}
+libc:
+	if [ ! -d libc/newlib/build ]; then \
+		rm -r libc/newlib/install; \
+		mkdir libc/newlib/build; \
+		(cd libc/newlib/build && ../src/configure --target=i386-pc-gheithos --disable-multilib --prefix=${PWD}/libc/newlib/install); \
+	fi
+	(cd libc/newlib/build && make && make install)
 
 failed:
 	-@for i in "`grep -l fail *.result`"; do \

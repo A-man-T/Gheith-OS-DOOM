@@ -16,6 +16,7 @@
 #include "tss.h"
 #include "physmem.h"
 #include "vmm.h"
+#include "ps2.h"
 
 struct Stack {
     static constexpr int BYTES = 8192;
@@ -39,14 +40,11 @@ static constexpr uint32_t HEAP_SIZE = 5 * 1024 * 1024;
 static constexpr uint32_t VMM_FRAMES = HEAP_START + HEAP_SIZE;
 
 extern "C" void kernelInit(void) {
-
     U8250 uart;
-
     if (!smpInitDone) {
         Debug::init(&uart, &uart);
         Debug::debugAll = false;
         Debug::printf("\n| What just happened? Why am I here?\n");
-
         {
             Debug::printf("| Discovering my identity and features\n");
             cpuid_out out;
@@ -142,6 +140,8 @@ extern "C" void kernelInit(void) {
 
     // Initialize the PIT
     Pit::init();
+    //initialize keyboard/mouse & their interrupts
+    PS2::init();
 
     auto id = SMP::me();
 

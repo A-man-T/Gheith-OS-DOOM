@@ -1,0 +1,38 @@
+name: Kernel Tests
+
+on: [push, pull_request] # This triggers the workflow on push and pull request events for any branch
+
+jobs:
+  build:
+    runs-on: ubuntu-20.04 # Specify Ubuntu 20.04 as the runner
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Cache Apt Packages
+        uses: actions/cache@v2
+        with:
+          path: /var/cache/apt/archives/
+          key: ${{ runner.os }}-apt-${{ hashFiles('**/apt-packages.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-apt-
+
+      - name: Add PPA for GCC 11 and Update Package Lists
+        run: |
+          sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
+          sudo apt-get update
+
+      - name: Install Specific Version of GCC and Other Dependencies
+        run: |
+          sudo apt-get install -y gcc-11 g++-11 gcc-11-multilib g++-11-multilib qemu-system-i386 time
+
+      - name: Set Default GCC and G++ to Version 11
+        run: |
+          sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-11 60 --slave /usr/bin/g++ g++ /usr/bin/g++-11
+
+      - name: make
+        run: make
+
+      - name: Run make -s test
+        run: |
+          make -s test

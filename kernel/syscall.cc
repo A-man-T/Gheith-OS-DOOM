@@ -1,4 +1,6 @@
 #include "syscalls.h"
+
+#include "errno.h"
 #include "kernel.h"
 #include "utils.h"
 #include "process.h"
@@ -18,12 +20,12 @@ int lseek(const int fd, const int offset, const int whence)
     auto& descriptor = *descriptor_pointer;
     if (descriptor == nullptr)
     {
-        return -1;
+        return -1 * EBADF;
     }
 
     if (!(descriptor->supports_offset()))
     {
-        return -1;
+        return -1 * EBADF;
     }
 
     int new_offset = -1;
@@ -46,13 +48,13 @@ int lseek(const int fd, const int offset, const int whence)
         }
         default:
         {
-            return -1;
+            return -1 * EINVAL;
         }
     }
 
     // Check if offset is negative
     if (new_offset < 0) {
-        return -1;
+        return -1 * EINVAL;
     }
     
     descriptor->set_offset(new_offset);
