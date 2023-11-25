@@ -238,18 +238,20 @@ int read(int file, char *ptr, int len) {
 }
 
 caddr_t sbrk(int incr) {
-    // TODO errno
     if (incr % 4096 != 0) {
         incr += 4096 - (incr % 4096);
     }
 
-    const char *stack_low = (char *)(0xF0000000 - 1024 * 1024);
-    extern char _end;
-    static char *heap_end = 0;
-    char *prev_heap_end;
+    const char *stack_low = (const char *)(0xF0000000 - 1024 * 1024);
+    static char *heap_end = (char *)0;
 
     if (heap_end == 0) {
-        heap_end = &_end;
+        extern char _end;
+        unsigned int end_address = (unsigned int)&_end;
+        if (end_address % 4096 != 0) {
+            end_address += 4096 - (end_address % 4096);
+        }
+        heap_end = (char *)end_address;
     }
 
     if (heap_end + incr > stack_low) {
@@ -260,9 +262,11 @@ caddr_t sbrk(int incr) {
     if (simple_mmap(heap_end, incr, -1, 0) == 0) {
         return (caddr_t)-1;
     }
+
+    caddr_t prev_heap_end = (caddr_t)heap_end;
     heap_end += incr;
 
-    return (caddr_t)prev_heap_end;
+    return prev_heap_end;
 }
 
 int stat(const char *file, struct stat *st) {

@@ -1,5 +1,9 @@
 #pragma once
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 // This file contains headers for syscalls that are special to our OS
 
 void shutdown(void);
@@ -28,3 +32,7 @@ int read_mouse_event(void);
 int read_key_event(void);
 int is_pressed(unsigned int key);
 int is_held(unsigned int key);
+
+#ifdef __cplusplus
+}
+#endif
