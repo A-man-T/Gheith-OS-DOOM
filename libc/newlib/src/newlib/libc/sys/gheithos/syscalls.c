@@ -178,7 +178,7 @@ char *environ[] = {0};
 int _execve(const char *name, const char **argv, const char **env) {
     // TODO environment?
 
-    return setErrno(__syscall3(SYS_EXECVE, name, argv, env));
+    return setErrno(__syscall3(SYS_EXECVE, (size_t)name, (size_t)argv, (size_t)env));
 }
 
 int fork() {
@@ -232,6 +232,7 @@ int read(int file, char *ptr, int len) {
 }
 
 caddr_t sbrk(int incr) {
+    // TODO errno
     if (incr % 4096 != 0) {
         incr += 4096 - (incr % 4096);
     }
