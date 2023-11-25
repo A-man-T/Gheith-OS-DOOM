@@ -13,4 +13,4 @@ inline constexpr int SEEK_END = 2;
 int lseek(const int fd, const int offset, const int whence);
 
 // Determines whether the file descriptor uses the terminal. Stdin, stdout, and stderr are all terminals.
-bool isatty(const int fd_num);
+int isatty(const int fd_num);

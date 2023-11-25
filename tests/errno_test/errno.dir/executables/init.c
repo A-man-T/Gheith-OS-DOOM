@@ -36,6 +36,7 @@
 #define SYS_PIPE 1026
 #define SYS_LSEEK 1029
 #define SYS_DUP 1028
+#define SYS_IS_TTY 1050
 #define SYS_IS_PRESSED 2000
 #define SYS_IS_HELD 2004
 
@@ -342,6 +343,13 @@ int main(int argc, char **argv) {
     // invalid key IDs
     HASERROR(is_held(0), EINVAL, -1);
     HASERROR(is_held(126), EINVAL, -1);
+
+    // Test 23: isatty()
+    efault(SYS_IS_TTY, -1);
+    // non-open fd
+    HASERROR(isatty(3), EBADF, -1);
+    // too large fd
+    HASERROR(isatty(1000), EBADF, -1);
 
     puts("*** PASSED");
     shutdown();

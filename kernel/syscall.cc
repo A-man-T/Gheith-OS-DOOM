@@ -61,16 +61,16 @@ int lseek(const int fd, const int offset, const int whence)
     return new_offset;
 }
 
-bool isatty(const int fd_num){
+int isatty(const int fd_num){
     Process* process = active_processes.mine();
     auto descriptor_pointer = process->file_descriptors.get(fd_num);
     if (descriptor_pointer == nullptr) {
-        return 0;
+        return -1 * EBADF;
     }
     auto& fd = *descriptor_pointer;
     if (fd == nullptr)
     {
-        return 0;
+        return -1 * EBADF;
     }
     return fd->is_tty();
 }
