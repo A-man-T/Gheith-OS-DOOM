@@ -15,13 +15,14 @@ int main(int argc, char** argv) {
 
     int pipe_fds[2];
     pipe(pipe_fds);
-    int pipe_write = pipe_fds[0];
-    int pipe_read = pipe_fds[1];
+    int pipe_read = pipe_fds[0];
+    int pipe_write = pipe_fds[1];
     close(pipe_write);
 
     printf("*** Starting Test 1\n");
 
     char* buffer = (char *)malloc(10);
+    printf("%x\n", (unsigned int) buffer);
 
     if (fork() == 0) {
         int pipeChildRead = read(pipe_read, buffer, 10);
