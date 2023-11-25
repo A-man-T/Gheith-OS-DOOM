@@ -1,6 +1,7 @@
 #include <stddef.h>
-
-#include "libc.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
 
 #define ASSERT(condition)                                                                       \
     if (!(condition)) {                                                                         \
@@ -9,8 +10,7 @@
     }
 
 int main(int argc, char **argv, char **envp) {
-    puts("*** Was able to execve with null argv");
-    ASSERT(argc == 0);
-    ASSERT(argv[0] == NULL);
+    puts("*** Was able to execve with null envp");
+    ASSERT(envp[0] == NULL);
     exit(0);
 }

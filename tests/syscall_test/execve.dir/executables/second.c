@@ -1,6 +1,8 @@
 #include <stddef.h>
-
-#include "libc.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <sys/gheithos.h>
 
 #define ASSERT(condition)                                                                       \
     if (!(condition)) {                                                                         \

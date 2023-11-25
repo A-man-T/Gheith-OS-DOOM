@@ -1,8 +1,10 @@
 // GCC is too smart to let me pass 0x1 as an argument to execve so I use the pragma
 #pragma GCC diagnostic ignored "-Wstringop-overread"
 #include <stddef.h>
-
-#include "libc.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <sys/gheithos.h>
 
 /**
  * Tests that execve behaves as expected
