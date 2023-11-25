@@ -89,8 +89,8 @@ int wrapped_sys_handler(uint32_t syscall_type, uint32_t* interrupt_frame) {
             }
 
             auto path = reinterpret_cast<const char*>(sys_args[0]);
-            auto argv = reinterpret_cast<char* const*>(sys_args[1]);
-            auto envp = reinterpret_cast<char* const*>(sys_args[2]);
+            auto argv = reinterpret_cast<const char* const*>(sys_args[1]);
+            auto envp = reinterpret_cast<const char* const*>(sys_args[2]);
 
             return SYS::execve(path, argv, envp);
         }
