@@ -1,5 +1,6 @@
 #include "memory_mapping.h"
 
+#include "errno.h"
 #include "kernel.h"
 #include "physmem.h"
 #include "unique_ptr.h"
@@ -12,20 +13,20 @@ uint32_t MemoryMapping::map(uint32_t start, uint32_t size) {
 
 uint32_t MemoryMapping::map(uint32_t start, uint32_t size, Shared<FileDescriptor> fd, uint32_t file_offset, uint32_t file_size) {
     if (size == 0 || start % PhysMem::FRAME_SIZE != 0 || size % PhysMem::FRAME_SIZE != 0) {
-        return 0;
+        return -1 * EINVAL;
     }
 
     if (start != 0) {
         // user addresses only
         if (start < USER_MEM_START || !check_bounds(start, size, 1, USER_MEM_START, SHARED_ADDRESS + 1)) {
-            return 0;
+            return -1 * EINVAL;
         }
 
         if (check_address(start, false).exists) {
-            return 0;
+            return -1 * EINVAL;
         }
         if (check_address(start + size - 1, false).exists) {
-            return 0;
+            return -1 * EINVAL;
         }
     } else {
         uint32_t page = USER_MEM_START;
@@ -38,7 +39,7 @@ uint32_t MemoryMapping::map(uint32_t start, uint32_t size, Shared<FileDescriptor
             page = entry->start + entry->size;
         }
         if (start == 0) {
-            return 0;
+            return -1 * ENOMEM;
         }
     }
 

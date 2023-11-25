@@ -38,8 +38,16 @@
 #define SYS_READ_MOUSE_EVENT 2003
 #define SYS_IS_HELD 2004
 
+static inline int setErrno(int __ret) {
+    if (__ret < 0) {
+        errno = -1 * __ret;
+        return -1;
+    }
+    return __ret;
+}
+
 static inline long __syscall0(long n) {
-    unsigned long __ret;
+    long __ret;
     __asm__ __volatile__(
         "sub $4, %%esp;"
         "int $48;"
@@ -51,7 +59,7 @@ static inline long __syscall0(long n) {
 }
 
 static inline long __syscall1(long n, long a1) {
-    unsigned long __ret;
+    long __ret;
     __asm__ __volatile__(
         "pushl %2;"
         "sub $4, %%esp;"
@@ -64,7 +72,7 @@ static inline long __syscall1(long n, long a1) {
 }
 
 static inline long __syscall2(long n, long a1, long a2) {
-    unsigned long __ret;
+    long __ret;
     __asm__ __volatile__(
         "pushl %3;"
         "pushl %2;"
@@ -78,7 +86,7 @@ static inline long __syscall2(long n, long a1, long a2) {
 }
 
 static inline long __syscall3(long n, long a1, long a2, long a3) {
-    unsigned long __ret;
+    long __ret;
     __asm__ __volatile__(
         "pushl %4;"
         "pushl %3;"
@@ -93,7 +101,7 @@ static inline long __syscall3(long n, long a1, long a2, long a3) {
 }
 
 static inline long __syscall4(long n, long a1, long a2, long a3, long a4) {
-    unsigned long __ret;
+    long __ret;
     __asm__ __volatile__(
         "pushl %5;"
         "pushl %4;"
@@ -109,7 +117,7 @@ static inline long __syscall4(long n, long a1, long a2, long a3, long a4) {
 }
 
 static inline long __syscall5(long n, long a1, long a2, long a3, long a4, long a5) {
-    unsigned long __ret;
+    long __ret;
     __asm__ __volatile__(
         "pushl %6;"
         "pushl %5;"
@@ -126,7 +134,7 @@ static inline long __syscall5(long n, long a1, long a2, long a3, long a4, long a
 }
 
 static inline long __syscall6(long n, long a1, long a2, long a3, long a4, long a5, long a6) {
-    unsigned long __ret;
+    long __ret;
     __asm__ __volatile__(
         "pushl %7;"
         "pushl %6;"
@@ -144,7 +152,7 @@ static inline long __syscall6(long n, long a1, long a2, long a3, long a4, long a
 }
 
 static inline long __syscall_varargs(long n, const void **args) {
-    unsigned long __ret;
+    long __ret;
     __asm__ __volatile__(
         "mov %%esp, %%esi;"
         "mov %2, %%esp;"
@@ -156,15 +164,13 @@ static inline long __syscall_varargs(long n, const void **args) {
     return __ret;
 }
 
-// TODO errno?
-
 // syscalls required by newlib
-void _exit(int code) {
-    __syscall1(SYS_EXIT, code);
+int _exit(int code) {
+    return setErrno(__syscall1(SYS_EXIT, code));
 }
 
 int close(int file) {
-    return __syscall1(SYS_CLOSE, file);
+    return setErrno(__syscall1(SYS_CLOSE, file));
 }
 
 char *environ[] = {0};
@@ -177,71 +183,73 @@ int _execve(const char *name, const char **argv, const char **env) {
     for (int i = 0; i < 99; i++) {
         args[i + 1] = argv[i];
         if (argv[i] == 0) {
-            return __syscall_varargs(SYS_EXECL, (const void **)args);
+            return setErrno(__syscall_varargs(SYS_EXECL, (const void **)args));
         }
     }
-
+    errno = E2BIG;
     return -1;
 }
 
 int fork() {
-    return __syscall0(SYS_FORK);
+    return setErrno(__syscall0(SYS_FORK));
 }
 
 int fstat(int file, struct stat *st) {
     // TODO
+    errno = ENOSYS;
     return 0;
 }
 
 int getpid() {
     // TODO
+    errno = ENOSYS;
     return 1;
 }
 
 int isatty(int file) {
     // TODO
+    errno = ENOSYS;
     return 1;
 }
 
 int kill(int pid, int sig) {
     // TODO kill by pid
-    return __syscall1(SYS_KILL, sig);
+    return setErrno(__syscall1(SYS_KILL, sig));
 }
 
 int link(char *old, char *new) {
     // TODO
+    errno = ENOSYS;
     return -1;
 }
 
 int lseek(int file, int ptr, int dir) {
-    return __syscall3(SYS_LSEEK, file, ptr, dir);
+    return setErrno(__syscall3(SYS_LSEEK, file, ptr, dir));
 }
 
 int open(const char *name, int flags, ...) {
     // TODO flags
     // TODO varargs?
-    return __syscall1(SYS_OPEN, (long)name);
+    return setErrno(__syscall1(SYS_OPEN, (long)name));
 }
 
 int read(int file, char *ptr, int len) {
-    return __syscall3(SYS_READ, file, (long)ptr, len);
+    return setErrno(__syscall3(SYS_READ, file, (long)ptr, len));
 }
 
 caddr_t sbrk(int incr) {
+    // TODO errno
     if (incr % 4096 != 0) {
         incr += 4096 - (incr % 4096);
     }
 
-    const char *stack_low = (const char *)(0xF0000000 - 1024 * 1024);
-    static char *heap_end = (char *)0;
+    const char *stack_low = (char *)(0xF0000000 - 1024 * 1024);
+    extern char _end;
+    static char *heap_end = 0;
+    char *prev_heap_end;
 
     if (heap_end == 0) {
-        extern char _end;
-        unsigned int end_address = (unsigned int)&_end;
-        if (end_address % 4096 != 0) {
-            end_address += 4096 - (end_address % 4096);
-        }
-        heap_end = (char *)end_address;
+        heap_end = &_end;
     }
 
     if (heap_end + incr > stack_low) {
@@ -252,119 +260,128 @@ caddr_t sbrk(int incr) {
     if (simple_mmap(heap_end, incr, -1, 0) == 0) {
         return (caddr_t)-1;
     }
-
-    caddr_t prev_heap_end = (caddr_t)heap_end;
     heap_end += incr;
 
-    return prev_heap_end;
+    return (caddr_t)prev_heap_end;
 }
 
 int stat(const char *file, struct stat *st) {
     // TODO
+    errno = ENOSYS;
     return -1;
 }
 
 clock_t times(struct tms *buf) {
     // TODO
+    errno = ENOSYS;
     return -1;
 }
 
 int unlink(char *name) {
     // TODO
+    errno = ENOSYS;
     return -1;
 }
 
 int wait(int *status) {
     // TODO proper wait
-    return __syscall0(SYS_JOIN);
+    return setErrno(__syscall0(SYS_JOIN));
 }
 
 int write(int file, char *ptr, int len) {
-    return __syscall3(SYS_WRITE, file, (long)ptr, len);
+    return setErrno(__syscall3(SYS_WRITE, file, (long)ptr, len));
 }
 
 int gettimeofday(struct timeval *p, void *z) {
     // TODO
+    errno = ENOSYS;
     return 0;
 }
 
 // other syscalls
 void shutdown(void) {
-    __syscall0(SYS_SHUTDOWN);
+    setErrno(__syscall0(SYS_SHUTDOWN));
 }
 
 void yield(void) {
-    __syscall0(SYS_YIELD);
+    setErrno(__syscall0(SYS_YIELD));
 }
 
 int join(void) {
-    return __syscall0(SYS_JOIN);
+    return setErrno(__syscall0(SYS_JOIN));
 }
 
 // semaphores
 int sem(unsigned int initial_value) {
-    return __syscall1(SYS_SEM, initial_value);
+    return setErrno(__syscall1(SYS_SEM, initial_value));
 }
 
 int up(unsigned int num) {
-    return __syscall1(SYS_UP, num);
+    return setErrno(__syscall1(SYS_UP, num));
 }
 
 int down(unsigned int num) {
-    return __syscall1(SYS_DOWN, num);
+    return setErrno(__syscall1(SYS_DOWN, num));
 }
 
 int sem_close(unsigned int num) {
-    return __syscall1(SYS_SEM_CLOSE, num);
+    return setErrno(__syscall1(SYS_SEM_CLOSE, num));
 }
 
 // signals
-void simple_signal(void (*handler)(int, unsigned int)) {
-    __syscall1(SYS_SIMPLE_SIGNAL, (long)handler);
+int simple_signal(void (*handler)(int, unsigned int)) {
+    return setErrno(__syscall1(SYS_SIMPLE_SIGNAL, (long)handler));
 }
 
 int sigreturn() {
-    return __syscall0(SYS_SIGRETURN);
+    return setErrno(__syscall0(SYS_SIGRETURN));
 }
 
 // mmap
 void *simple_mmap(void *address, unsigned int size, int fd, unsigned int offset) {
-    return (void *)__syscall4(SYS_SIMPLE_MMAP, (long)address, size, fd, offset);
+    long __ret = __syscall4(SYS_SIMPLE_MMAP, (long)address, size, fd, offset);
+    if (__ret % 4096 != 0) {
+        // https://stackoverflow.com/a/47566663 to check if __ret is error or high address
+        errno = -1 * __ret;
+        return NULL;
+    }
+    return (void *)__ret;
 }
 
 int simple_munmap(void *address) {
-    return __syscall1(SYS_SIMPLE_MUNMAP, (long)address);
+    return setErrno(__syscall1(SYS_SIMPLE_MUNMAP, (long)address));
 }
 
 // files
 int chdir(const char *path) {
-    return __syscall1(SYS_CHDIR, (long)path);
+    return setErrno(__syscall1(SYS_CHDIR, (long)path));
 }
 
 int len(int fd) {
-    return __syscall1(SYS_LEN, fd);
+    return setErrno(__syscall1(SYS_LEN, fd));
 }
 
 int pipe(int fds[2]) {
-    return __syscall2(SYS_PIPE, (long)&fds[1], (long)&fds[0]);
+    return setErrno(__syscall2(SYS_PIPE, (long)&fds[1], (long)&fds[0]));
 }
 
 int dup(int fd) {
-    return __syscall1(SYS_DUP, fd);
+    return setErrno(__syscall1(SYS_DUP, fd));
 }
 
+
 int read_mouse_event(void) {
-    return __syscall0(SYS_READ_MOUSE_EVENT);
+    return setErrno(__syscall0(SYS_READ_MOUSE_EVENT));
 }
 
 int read_key_event(void) {
-    return __syscall0(SYS_READ_KEY_EVENT);
+    return setErrno(__syscall0(SYS_READ_KEY_EVENT));
 }
 
 int is_pressed(unsigned int key) {
-    return __syscall1(SYS_IS_PRESSED, key);
+    return setErrno(__syscall1(SYS_IS_PRESSED, key));
 }
 
 int is_held(unsigned int key) {
-    return __syscall1(SYS_IS_HELD, key);
+    return setErrno(__syscall1(SYS_IS_HELD, key));
 }

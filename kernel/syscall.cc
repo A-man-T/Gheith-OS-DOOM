@@ -1,4 +1,6 @@
 #include "syscalls.h"
+
+#include "errno.h"
 #include "kernel.h"
 #include "utils.h"
 #include "process.h"
@@ -15,13 +17,13 @@ int lseek(const int fd, const int offset, const int whence)
     if (descriptor == nullptr)
     {
         //Debug::printf("passed in invalid file descriptor into lseek\n");
-        return -1;
+        return -1 * EBADF;
     }
 
     if (!(descriptor->supports_offset()))
     {
         //Debug::printf("file descriptor does not support offset\n");
-        return -1;
+        return -1 * EBADF;
     }
 
     int new_offset = -1;
@@ -45,13 +47,13 @@ int lseek(const int fd, const int offset, const int whence)
         default:
         {
             //Debug::printf("passed in invalid whence flag into lseek\n");
-            return -1;
+            return -1 * EINVAL;
         }
     }
 
     // Check if offset is negative
     if (new_offset < 0) {
-        return -1;
+        return -1 * EINVAL;
     }
     
     descriptor->set_offset(new_offset);

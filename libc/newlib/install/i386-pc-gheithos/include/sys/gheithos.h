@@ -13,7 +13,8 @@ int down(unsigned int num);
 int sem_close(unsigned int num);
 
 // signals
-void simple_signal(void (*handler)(int, unsigned int));
+int simple_signal(void (*handler)(int, unsigned int));
+int kill(int pid, int sig);
 
 // mmap
 void* simple_mmap(void* address, unsigned int size, int fd, unsigned int offset);
