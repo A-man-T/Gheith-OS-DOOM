@@ -1,6 +1,6 @@
 set -e
 
-UTCS_OPT=-O3 make clean the_kernel $1 $1.data
+UTCS_OPT=-O3 make clean the_kernel $1.build $1.data
 
 #-d cpu,guest_errors,int,cpu_reset
 

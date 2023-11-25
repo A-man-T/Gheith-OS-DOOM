@@ -1,0 +1,14 @@
+#!/bin/bash
+
+LIBC_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+INSTALL_DIR=$LIBC_DIR/newlib/install/i386-pc-gheithos
+
+CRT_FILE=$INSTALL_DIR/lib/crt0.o
+if [[ $* == *-c\ * || $* == *-c ]]; then
+    CRT_FILE=
+fi
+
+g++ -m32 -isystem $INSTALL_DIR/include \
+    -T $LIBC_DIR/gheithos.ld -Wl,-melf_i386 -static -static-libgcc \
+    -nostdlib -L$INSTALL_DIR/lib \
+    $@ $CRT_FILE -lc -lm

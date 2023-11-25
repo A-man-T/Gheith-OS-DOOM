@@ -1,0 +1,55 @@
+# ${TEST_DIR} must be provided in environment
+
+EXECUTABLES = ${TEST_DIR}/executables
+SBIN = ${TEST_DIR}/sbin
+SRC = ${TEST_DIR}/src
+INCLUDE = ${TEST_DIR}/include
+B = ${TEST_DIR}/build
+
+CC = ./libc/gheithos-gcc
+CXX = ./libc/gheithos-g++
+
+SHARED_FLAGS = -O2 -Wall -Werror -mno-sse -fno-stack-protector -I${INCLUDE} -Wno-array-bounds
+CFLAGS = -std=c99 ${SHARED_FLAGS}
+CCFLAGS = -std=c++20 -fno-exceptions -fno-rtti -ffreestanding ${SHARED_FLAGS}
+
+BINARIES = ${addprefix ${SBIN}/,${basename ${notdir ${wildcard ${EXECUTABLES}/*}}}}
+OBJECTS = ${addprefix $B/,${addsuffix .o,${basename ${notdir ${wildcard ${SRC}/*}}}}}
+
+.PHONY: all setup clean
+
+all : ${BINARIES}
+
+setup:
+	-@mkdir -p ${EXECUTABLES}
+	-@mkdir -p ${SBIN}
+	-@mkdir -p ${SRC}
+	-@mkdir -p ${INCLUDE}
+	-@mkdir -p $B
+
+define COMPILE
+$B/%.o : Makefile.test $2/%.$3 | setup
+	$1 -c -MD -MF $B/$$*.d $4 -o $B/$$*.o $2/$$*.$3
+endef
+
+define ASSEMBLE
+$B/%.o : Makefile.test $1/%.$2 | setup
+	${CC} -MD -MF $B/$$*.d -m32 -c -o $B/$$*.o $1/$$*.$2
+endef
+
+${eval ${call COMPILE,${CC},${EXECUTABLES},c,${CFLAGS}}}
+${eval ${call COMPILE,${CC},${SRC},c,${CFLAGS}}}
+${eval ${call COMPILE,${CXX},${EXECUTABLES},cc,${CCFLAGS}}}
+${eval ${call COMPILE,${CXX},${SRC},cc,${CCFLAGS}}}
+${eval ${call ASSEMBLE,${EXECUTABLES},s}}
+${eval ${call ASSEMBLE,${EXECUTABLES},S}}
+${eval ${call ASSEMBLE,${SRC},s}}
+${eval ${call ASSEMBLE,${SRC},S}}
+
+${BINARIES} : ${SBIN}/% : Makefile.test $B/%.o ${OBJECTS} | setup
+	${CC} -Wl,-N -o $@ $B/$*.o ${OBJECTS}
+
+clean:
+	rm -rf $B
+
+-include $B/*.d
