@@ -15,7 +15,7 @@ int lseek(const int fd, const int offset, const int whence)
     Process * process = active_processes.mine();
     auto descriptor_pointer = process->file_descriptors.get(fd);
     if (descriptor_pointer == nullptr) {
-        return -1;
+        return -1 * EBADF;
     }
     auto& descriptor = *descriptor_pointer;
     if (descriptor == nullptr)

@@ -48,7 +48,8 @@ class DescriptorList {
     }
 
     bool remove(uint32_t index) {
-        if (get(index) == nullptr) {
+        T* ptr = get(index);
+        if (ptr == nullptr || *ptr == nullptr) {
             return false;
         }
 

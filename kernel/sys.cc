@@ -211,7 +211,7 @@ int wrapped_sys_handler(uint32_t syscall_type, uint32_t* interrupt_frame) {
             }
             auto fd_pointer = process->file_descriptors.get(file);
             if (fd_pointer == nullptr) {
-                return 0;
+                return -1 * EBADF;
             }
             auto& fd = *fd_pointer;
             if (fd == nullptr || !fd->supports_offset()) {
@@ -313,7 +313,7 @@ int wrapped_sys_handler(uint32_t syscall_type, uint32_t* interrupt_frame) {
             auto process = active_processes.mine();
             auto fd_pointer = process->file_descriptors.get(sys_args[0]);
             if (fd_pointer == nullptr) {
-                return 0;
+                return -1 * EBADF;
             }
             auto& fd = *fd_pointer;
             if (fd == nullptr) {
@@ -346,7 +346,7 @@ int wrapped_sys_handler(uint32_t syscall_type, uint32_t* interrupt_frame) {
             auto process = active_processes.mine();
             auto fd_pointer = process->file_descriptors.get(sys_args[0]);
             if (fd_pointer == nullptr) {
-                return 0;
+                return -1 * EBADF;
             }
             auto& fd = *fd_pointer;
             if (fd == nullptr || !fd->is_readable()) {
@@ -387,7 +387,7 @@ int wrapped_sys_handler(uint32_t syscall_type, uint32_t* interrupt_frame) {
             auto process = active_processes.mine();
             auto fd_pointer = process->file_descriptors.get(sys_args[0]);
             if (fd_pointer == nullptr) {
-                return 0;
+                return -1 * EBADF;
             }
             auto& fd = *fd_pointer;
             if (fd == nullptr || !fd->is_writable()) {
@@ -441,7 +441,7 @@ int wrapped_sys_handler(uint32_t syscall_type, uint32_t* interrupt_frame) {
 
             auto fd_pointer = process->file_descriptors.get(sys_args[0]);
             if (fd_pointer == nullptr) {
-                return 0;
+                return -1 * EBADF;
             }
             auto& fd = *fd_pointer;
             if (fd == nullptr) {
@@ -480,7 +480,7 @@ int wrapped_sys_handler(uint32_t syscall_type, uint32_t* interrupt_frame) {
 
         case 1050: { // int isatty(int fd)
             if (!validate_address(sys_args)) {
-                return -1;
+                return -1 * EFAULT;
             }
             return isatty(sys_args[0]);
         }
@@ -574,7 +574,7 @@ int32_t SYS::execve(const char* pathname, const char* const argv[], const char* 
         for (int32_t i = 0; i < n_envs; i++) {
             int32_t var_length = Utils::validate_and_count(envp[i], is_initial);
             if (var_length == -1) {
-                return -1;
+                return -1 * EFAULT;
             }
             total_length += var_length + 1;
         }
