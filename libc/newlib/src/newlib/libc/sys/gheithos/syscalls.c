@@ -33,6 +33,7 @@
 #define SYS_PIPE 1026
 #define SYS_LSEEK 1029
 #define SYS_DUP 1028
+#define SYS_IS_TTY 1050
 #define SYS_IS_PRESSED 2000
 #define SYS_READ_KEY_EVENT 2001
 #define SYS_READ_MOUSE_EVENT 2003
@@ -185,18 +186,21 @@ int fork() {
 }
 
 int fstat(int file, struct stat *st) {
-    // TODO
-    errno = ENOSYS;
-    return 0;
+    // TODO more than just isatty
+    int result = setErrno(__syscall1(SYS_IS_TTY, file));
+    if (result < 0) {
+        errno = EBADF;
+    } else if (result == 1) {
+        // the isatty function looks st_mode to determine if tty
+        // see libc/newlib/src/newlib/libc/posix/_isatty.c
+        st->st_mode = 0020000;
+    } else {
+        st->st_mode = 0;
+    }
+    return result;
 }
 
 int getpid() {
-    // TODO
-    errno = ENOSYS;
-    return 1;
-}
-
-int isatty(int file) {
     // TODO
     errno = ENOSYS;
     return 1;
@@ -358,7 +362,6 @@ int pipe(int fds[2]) {
 int dup(int fd) {
     return setErrno(__syscall1(SYS_DUP, fd));
 }
-
 
 int read_mouse_event(void) {
     return setErrno(__syscall0(SYS_READ_MOUSE_EVENT));
