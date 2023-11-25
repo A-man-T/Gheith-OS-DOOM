@@ -235,7 +235,6 @@ int main(int argc, char **argv, char **envp) {
     // close too large fd
     HASERROR(close(1000), EBADF, -1);
 
-
     // Test 14: len()
     efault(SYS_LEN, -1);
     // len of non-open fd
@@ -348,11 +347,11 @@ int main(int argc, char **argv, char **envp) {
     HASERROR(is_held(126), EINVAL, -1);
 
     // Test 23: isatty()
-    efault(SYS_IS_TTY, -1);
+    efault(SYS_IS_TTY, 0);
     // non-open fd
-    HASERROR(isatty(3), EBADF, -1);
+    HASERROR(isatty(3), EBADF, 0);
     // too large fd
-    HASERROR(isatty(1000), EBADF, -1);
+    HASERROR(isatty(1000), EBADF, 0);
 
     puts("*** PASSED");
     shutdown();
