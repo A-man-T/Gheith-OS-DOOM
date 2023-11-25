@@ -16,15 +16,19 @@ int main(int argc, char **argv) {
     int *pipe_read = &pipe_fds[0];
     int *pipe_write = &pipe_fds[1];
 
+    int sync = sem(0);
+
     if (fork() == 0) {
         for (int i = 0; i < 4096; i++) {
             ASSERT(write(*pipe_write, "a", 1) == 1);
         }
         puts("*** Wrote 4096 characters to the pipe");
+        up(sync);
         // This write should permanently block
         write(*pipe_write, "a", 1);
         puts("*** Wrote 4097 chars");
     } else {
+        down(sync);
         close(*pipe_read);
         close(*pipe_write);
 
