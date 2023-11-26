@@ -85,6 +85,6 @@ bool FileDescriptor::is_tty() {
 FileDescriptor::~FileDescriptor() {
     if (type == Type::PipeWrite) {
         auto pipe = data.get_buffer();
-        pipe->put({'\0', true}, []{});
+        pipe->put({'\0', true}, [pipe]{});
     }
 }
