@@ -68,7 +68,6 @@ class FileDescriptor {
             data.file = nullptr;
         }
 
-        template <typename... Args>
         void construct_buffer(Shared<BoundedBuffer<CharWrapper>> buffer) {
             reset();
             tag = Tag::Buffer;
