@@ -1,4 +1,5 @@
-#include "libc.h"
+#include <stdio.h>
+#include <sys/gheithos.h>
 
 /**
  * This is just a simple program that allows us to test that we can read from serial input
