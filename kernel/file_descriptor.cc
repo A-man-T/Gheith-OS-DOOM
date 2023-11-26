@@ -62,10 +62,9 @@ Shared<FileDescriptor> FileDescriptor::from_terminal(uint32_t code) {
     return descriptor;
 }
 
-Shared<FileDescriptor> FileDescriptor::from_bounded_buffer(Shared<PipeBuffer> buffer, bool is_read_end) {
+Shared<FileDescriptor> FileDescriptor::from_bounded_buffer(Shared<BoundedBuffer<CharWrapper>> buffer, bool is_read_end) {
     auto descriptor = Shared<FileDescriptor>::make(
         is_read_end ? Type::PipeRead : Type::PipeWrite);
-    
     descriptor->data.construct_buffer(buffer);
     return descriptor;
 }
@@ -82,14 +81,10 @@ bool FileDescriptor::is_tty() {
     return type == Type::StdIn || type == Type::StdOut || type == Type::StdErr;
 }
 
-FileDescriptor::~FileDescriptor() {
-   
-    if(type == Type::PipeWrite){
-        auto pipe = data.get_buffer();
-        pipe->has_closed_all_writers = true;
 
-        CharWrapper value = {'\0', true};
-        pipe->buffer.put(value, []{});
+FileDescriptor::~FileDescriptor() {
+    if (type == Type::PipeWrite) {
+        auto pipe = data.get_buffer();
+        pipe->put({'\0', true}, []{});
     }
 }
-

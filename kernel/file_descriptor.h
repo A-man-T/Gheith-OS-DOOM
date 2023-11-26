@@ -15,14 +15,6 @@ struct CharWrapper {
     bool eof;
 };
 
-struct PipeBuffer {
-    BoundedBuffer<CharWrapper> buffer;
-    bool has_closed_all_writers = false;
-    Atomic<int> bytesInBuffer{0};
-    PipeBuffer(int size) : buffer(size){
-    }
-};
-
 class FileDescriptor {
    private:
     enum class Type {
@@ -35,7 +27,6 @@ class FileDescriptor {
         PipeWrite
     };
 
-   
     struct Data {
         enum class Tag {
             None,
@@ -45,7 +36,7 @@ class FileDescriptor {
 
         union Union {
             Node* file;
-            Shared<PipeBuffer> buffer;
+            Shared<BoundedBuffer<CharWrapper>> buffer;
 
             Union() {}
             ~Union() {}
@@ -78,13 +69,13 @@ class FileDescriptor {
         }
 
         template <typename... Args>
-        void construct_buffer(Args... args) {
+        void construct_buffer(Shared<BoundedBuffer<CharWrapper>> buffer) {
             reset();
             tag = Tag::Buffer;
-            new (&data.buffer) Shared<PipeBuffer>(args...);
+            new (&data.buffer) Shared<BoundedBuffer<CharWrapper>>(buffer);
         }
 
-        Shared<PipeBuffer> get_buffer() {
+        Shared<BoundedBuffer<CharWrapper>> get_buffer() {
             ASSERT(tag == Tag::Buffer);
             return data.buffer;
         }
@@ -154,19 +145,17 @@ class FileDescriptor {
                 if (size == 0) {
                     return 0;
                 }
-                if (data.get_buffer()->has_closed_all_writers && data.get_buffer()->bytesInBuffer.get() <= 0) {
-                    return 0;
-                }
-                data.get_buffer()->bytesInBuffer.add_fetch(-1);
                 schedule([buffer, bounded_buffer = data.get_buffer()](auto continuation) {
-                    bounded_buffer->buffer.get([buffer, continuation, bounded_buffer](auto data) {
-                        continuation((data.eof) ? 0 : 1, [buffer, data, bounded_buffer] {
-                            if (!data.eof) {
-                                *buffer = data.data;
-                            } else {
-                                bounded_buffer->buffer.put(data, []{});
-                            }
-                        });
+                    bounded_buffer->get([buffer, continuation, bounded_buffer](auto data) {
+                        if (data.eof) {
+                            continuation(0, [bounded_buffer, data] {
+                                bounded_buffer->put(data, []{});
+                            });
+                        } else {
+                            continuation(1, [buffer, data = data.data] {
+                                *buffer = data;
+                            });
+                        }
                     });
                 });
                 return -1;
@@ -201,10 +190,8 @@ class FileDescriptor {
                 if (size == 0) {
                     return 0;
                 }
-                data.get_buffer()->bytesInBuffer.add_fetch(1);
-                CharWrapper valToPut = {*buffer, false};
-                schedule([valToPut, bounded_buffer = data.get_buffer()](auto continuation) {
-                    bounded_buffer->buffer.put(valToPut, [continuation] {
+                schedule([buffer, bounded_buffer = data.get_buffer()](auto continuation) {
+                    bounded_buffer->put({*buffer, false}, [continuation] {
                         VMM::vmm_off();
                         continuation(1);
                     });
@@ -227,7 +214,7 @@ class FileDescriptor {
 
     static Shared<FileDescriptor> from_node(Node* node);
     static Shared<FileDescriptor> from_terminal(uint32_t code);
-    static Shared<FileDescriptor> from_bounded_buffer(Shared<PipeBuffer> buffer, bool is_read_end);
+    static Shared<FileDescriptor> from_bounded_buffer(Shared<BoundedBuffer<CharWrapper>> buffer, bool is_read_end);
 
    private:
     bool uses_file();
