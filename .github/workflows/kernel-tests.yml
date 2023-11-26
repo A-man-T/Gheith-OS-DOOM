@@ -1,6 +1,12 @@
 name: Kernel Tests
 
-on: [push, pull_request] # This triggers the workflow on push and pull request events for any branch
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
 
 jobs:
   build:

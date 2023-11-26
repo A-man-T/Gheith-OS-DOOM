@@ -232,7 +232,6 @@ int read(int file, char *ptr, int len) {
 }
 
 caddr_t sbrk(int incr) {
-    // TODO errno
     if (incr % 4096 != 0) {
         incr += 4096 - (incr % 4096);
     }
