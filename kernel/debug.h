@@ -10,6 +10,7 @@ class Debug {
     const char* what;
     bool flag;
     static OutputStream<char> *sink;
+    static InputStream<char> *source;
 public:
     static Atomic<uint32_t> checks;
     static bool shutdown_called;
@@ -33,8 +34,9 @@ public:
     static void vsay(const char* fmt, va_list ap);
     static void say(const char* fmt, ...);
     static void shutdown();
+    static char getchar();
 
-    static void init(OutputStream<char> *sink);
+    static void init(OutputStream<char> *sink, InputStream<char> *source);
 
     Debug(const char* what) : what(what), flag(false) {
     }

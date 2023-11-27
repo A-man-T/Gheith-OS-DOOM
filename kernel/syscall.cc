@@ -12,17 +12,19 @@
 // or -1 if the offset is negative and/or on an error (NOT offset - 1)
 int lseek(const int fd, const int offset, const int whence)
 {
-    Process *process = active_processes.mine();
-    Shared<FileDescriptor> descriptor = process->file_descriptors.get(fd);
+    Process * process = active_processes.mine();
+    auto descriptor_pointer = process->file_descriptors.get(fd);
+    if (descriptor_pointer == nullptr) {
+        return -1 * EBADF;
+    }
+    auto& descriptor = *descriptor_pointer;
     if (descriptor == nullptr)
     {
-        //Debug::printf("passed in invalid file descriptor into lseek\n");
         return -1 * EBADF;
     }
 
     if (!(descriptor->supports_offset()))
     {
-        //Debug::printf("file descriptor does not support offset\n");
         return -1 * EBADF;
     }
 
@@ -46,7 +48,6 @@ int lseek(const int fd, const int offset, const int whence)
         }
         default:
         {
-            //Debug::printf("passed in invalid whence flag into lseek\n");
             return -1 * EINVAL;
         }
     }
@@ -58,4 +59,18 @@ int lseek(const int fd, const int offset, const int whence)
     
     descriptor->set_offset(new_offset);
     return new_offset;
+}
+
+int isatty(const int fd_num){
+    Process* process = active_processes.mine();
+    auto descriptor_pointer = process->file_descriptors.get(fd_num);
+    if (descriptor_pointer == nullptr) {
+        return -1 * EBADF;
+    }
+    auto& fd = *descriptor_pointer;
+    if (fd == nullptr)
+    {
+        return -1 * EBADF;
+    }
+    return fd->is_tty();
 }

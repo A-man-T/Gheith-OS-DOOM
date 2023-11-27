@@ -14,7 +14,7 @@
 #define SYS_SHUTDOWN 7
 #define SYS_YIELD 998
 #define SYS_JOIN 999
-#define SYS_EXECL 1000
+#define SYS_EXECVE 1000
 #define SYS_KILL 1027
 #define SYS_SEM 1001
 #define SYS_UP 1002
@@ -33,6 +33,7 @@
 #define SYS_PIPE 1026
 #define SYS_LSEEK 1029
 #define SYS_DUP 1028
+#define SYS_IS_TTY 1050
 #define SYS_IS_PRESSED 2000
 #define SYS_READ_KEY_EVENT 2001
 #define SYS_READ_MOUSE_EVENT 2003
@@ -175,19 +176,9 @@ int close(int file) {
 
 char *environ[] = {0};
 int _execve(const char *name, const char **argv, const char **env) {
-    // TODO remove fixed upper limit once execve added
     // TODO environment?
 
-    const char *args[100];
-    args[0] = name;
-    for (int i = 0; i < 99; i++) {
-        args[i + 1] = argv[i];
-        if (argv[i] == 0) {
-            return setErrno(__syscall_varargs(SYS_EXECL, (const void **)args));
-        }
-    }
-    errno = E2BIG;
-    return -1;
+    return setErrno(__syscall3(SYS_EXECVE, (size_t)name, (size_t)argv, (size_t)env));
 }
 
 int fork() {
@@ -195,18 +186,21 @@ int fork() {
 }
 
 int fstat(int file, struct stat *st) {
-    // TODO
-    errno = ENOSYS;
-    return 0;
+    // TODO more than just isatty
+    int result = setErrno(__syscall1(SYS_IS_TTY, file));
+    if (result < 0) {
+        errno = EBADF;
+    } else if (result == 1) {
+        // the isatty function looks st_mode to determine if tty
+        // see libc/newlib/src/newlib/libc/posix/_isatty.c
+        st->st_mode = 0020000;
+    } else {
+        st->st_mode = 0;
+    }
+    return result;
 }
 
 int getpid() {
-    // TODO
-    errno = ENOSYS;
-    return 1;
-}
-
-int isatty(int file) {
     // TODO
     errno = ENOSYS;
     return 1;
@@ -372,7 +366,6 @@ int pipe(int fds[2]) {
 int dup(int fd) {
     return setErrno(__syscall1(SYS_DUP, fd));
 }
-
 
 int read_mouse_event(void) {
     return setErrno(__syscall0(SYS_READ_MOUSE_EVENT));

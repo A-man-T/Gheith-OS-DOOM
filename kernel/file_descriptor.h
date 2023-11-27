@@ -10,6 +10,11 @@
 #include "stdint.h"
 #include "vmm.h"
 
+struct CharWrapper {
+    char data;
+    bool eof;
+};
+
 class FileDescriptor {
    private:
     enum class Type {
@@ -31,7 +36,7 @@ class FileDescriptor {
 
         union Union {
             Node* file;
-            Shared<BoundedBuffer<char>> buffer;
+            Shared<BoundedBuffer<CharWrapper>> buffer;
 
             Union() {}
             ~Union() {}
@@ -63,14 +68,13 @@ class FileDescriptor {
             data.file = nullptr;
         }
 
-        template <typename... Args>
-        void construct_buffer(Args... args) {
+        void construct_buffer(Shared<BoundedBuffer<CharWrapper>> buffer) {
             reset();
             tag = Tag::Buffer;
-            new (&data.buffer) Shared<BoundedBuffer<char>>(args...);
+            new (&data.buffer) Shared<BoundedBuffer<CharWrapper>>(buffer);
         }
 
-        Shared<BoundedBuffer<char>> get_buffer() {
+        Shared<BoundedBuffer<CharWrapper>> get_buffer() {
             ASSERT(tag == Tag::Buffer);
             return data.buffer;
         }
@@ -104,6 +108,7 @@ class FileDescriptor {
    public:
     FileDescriptor(Type type);
     FileDescriptor(FileDescriptor&& other);
+    ~FileDescriptor();
 
     bool is_readable();
     bool is_writable();
@@ -140,13 +145,24 @@ class FileDescriptor {
                     return 0;
                 }
                 schedule([buffer, bounded_buffer = data.get_buffer()](auto continuation) {
-                    bounded_buffer->get([buffer, continuation](auto data) {
-                        continuation(1, [buffer, data] {
-                            *buffer = data;
-                        });
+                    bounded_buffer->get([buffer, continuation, bounded_buffer](auto data) {
+                        if (data.eof) {
+                            continuation(0, [bounded_buffer, data] {
+                                bounded_buffer->put(data, []{});
+                            });
+                        } else {
+                            continuation(1, [buffer, data = data.data] {
+                                *buffer = data;
+                            });
+                        }
                     });
                 });
                 return -1;
+            }
+
+            case Type::StdIn: {
+                buffer[0] = Debug::getchar();
+                return 1;
             }
 
             default:
@@ -174,7 +190,7 @@ class FileDescriptor {
                     return 0;
                 }
                 schedule([buffer, bounded_buffer = data.get_buffer()](auto continuation) {
-                    bounded_buffer->put(*buffer, [continuation] {
+                    bounded_buffer->put({*buffer, false}, [continuation] {
                         VMM::vmm_off();
                         continuation(1);
                     });
@@ -190,13 +206,14 @@ class FileDescriptor {
     }
 
     bool supports_offset();
+    bool is_tty();
     uint32_t get_length();
     uint32_t get_offset();
     void set_offset(uint32_t new_offset);
 
     static Shared<FileDescriptor> from_node(Node* node);
     static Shared<FileDescriptor> from_terminal(uint32_t code);
-    static Shared<FileDescriptor> from_bounded_buffer(Shared<BoundedBuffer<char>> buffer, bool is_read_end);
+    static Shared<FileDescriptor> from_bounded_buffer(Shared<BoundedBuffer<CharWrapper>> buffer, bool is_read_end);
 
    private:
     bool uses_file();

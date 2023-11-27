@@ -17,20 +17,20 @@ class DescriptorList {
         }
     }
 
-    T get(uint32_t index) {
+    T* get(uint32_t index) {
         if (index >= Size) {
-            return T{};
+            return nullptr;
         }
 
-        return data[index];
+        return &data[index];
     }
 
-    const T get(uint32_t index) const {
+    const T* get(uint32_t index) const {
         if (index >= Size) {
-            return T{};
+            return nullptr;
         }
 
-        return data[index];
+        return &data[index];
     }
 
     void set(uint32_t index, T value) {
@@ -48,7 +48,8 @@ class DescriptorList {
     }
 
     bool remove(uint32_t index) {
-        if (get(index) == T{}) {
+        T* ptr = get(index);
+        if (ptr == nullptr || *ptr == nullptr) {
             return false;
         }
 

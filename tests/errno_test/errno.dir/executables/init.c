@@ -1,3 +1,6 @@
+// GCC is too smart to let me pass 0x1 as an argument to execve so I use the pragma
+#pragma GCC diagnostic ignored "-Wstringop-overread"
+
 #include <errno.h>
 #include <fcntl.h>
 #include <signal.h>
@@ -18,7 +21,7 @@
 #define USER_STACK_START SHARED_ADDRESS
 #define USER_STACK_END USER_STACK_START - USER_STACK_SIZE
 
-#define SYS_EXECL 1000
+#define SYS_EXECVE 1000
 #define SYS_KILL 1027
 #define SYS_SEM 1001
 #define SYS_UP 1002
@@ -36,6 +39,7 @@
 #define SYS_PIPE 1026
 #define SYS_LSEEK 1029
 #define SYS_DUP 1028
+#define SYS_IS_TTY 1050
 #define SYS_IS_PRESSED 2000
 #define SYS_IS_HELD 2004
 
@@ -94,7 +98,7 @@ static void efault(int sysnum, int failure) {
     HASERROR(unmappedEsp(sysnum, failure), EFAULT, failure);
 }
 
-int main(int argc, char **argv) {
+int main(int argc, char **argv, char **envp) {
     // Test 0: exit()
     // TODO exit test
 
@@ -102,18 +106,20 @@ int main(int argc, char **argv) {
     // join when no children
     HASERROR(join(), ECHILD, -1);
 
-    // Test 2: execl()
-    efault(SYS_EXECL, -1);
+    // Test 2: execve()
+    efault(SYS_EXECVE, -1);
     // segfault pathname
-    HASERROR(execl(NULL, 0), EFAULT, -1);
-    // segfault arg
-    HASERROR(execl("sbin/init", (void *)1, 0), EFAULT, -1);
-    // execl file that does not exist
-    HASERROR(execl("doesNotExist", "doesNotExist", 0), ENOENT, -1);
-    // execl non-file
-    HASERROR(execl("sbin", "sbin", 0), EACCES, -1);
-    // execl invalid ELF
-    HASERROR(execl("executables/init.c", "executables/init.c", 0), ENOEXEC, -1);
+    HASERROR(execve(NULL, argv, envp), EFAULT, -1);
+    // segfault argv
+    HASERROR(execve("sbin/init", (void *)1, envp), EFAULT, -1);
+    // segfault envp
+    HASERROR(execve("sbin/init", argv, (void*)1), EFAULT, -1);
+    // exec file that does not exist
+    HASERROR(execve("doesNotExist", NULL, NULL), ENOENT, -1);
+    // exec non-file
+    HASERROR(execve("sbin", NULL, NULL), EACCES, -1);
+    // exec invalid ELF
+    HASERROR(execve("executables/init.c", NULL, NULL), ENOEXEC, -1);
 
     // Test 3: sem()
     efault(SYS_SEM, -1);
@@ -261,9 +267,9 @@ int main(int argc, char **argv) {
     HASERROR(write(1, NULL, 1), EFAULT, -1);
     char wbuf[100];
     // write non-open fd
-    HASERROR(read(3, wbuf, 1), EBADF, -1);
+    HASERROR(write(3, wbuf, 1), EBADF, -1);
     // write too large fd
-    HASERROR(read(1000, wbuf, 1), EBADF, -1);
+    HASERROR(write(1000, wbuf, 1), EBADF, -1);
 
     // Test 17: pipe()
     efault(SYS_PIPE, -1);
@@ -339,6 +345,13 @@ int main(int argc, char **argv) {
     // invalid key IDs
     HASERROR(is_held(0), EINVAL, -1);
     HASERROR(is_held(126), EINVAL, -1);
+
+    // Test 23: isatty()
+    efault(SYS_IS_TTY, 0);
+    // non-open fd
+    HASERROR(isatty(3), EBADF, 0);
+    // too large fd
+    HASERROR(isatty(1000), EBADF, 0);
 
     puts("*** PASSED");
     shutdown();

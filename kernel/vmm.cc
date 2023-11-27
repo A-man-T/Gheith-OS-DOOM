@@ -155,11 +155,11 @@ void write_stack_data(T data, uint32_t& address, uint32_t& current_block, uint32
     address += sizeof(T);
 }
 
-uint32_t set_up_stack(uint32_t n_args, uint32_t total_length, const char** args, uint32_t directory_address) {
+uint32_t set_up_stack(uint32_t directory_address, uint32_t total_length, const char* const argv[], uint32_t n_args, const char* const envp[], uint32_t n_envs) {
     uint32_t* directory = (uint32_t*)directory_address;
 
-    // argc, argv**, argv*[i] + nullptr
-    uint32_t pointer_stack_space = 4 + 4 + (4 * (n_args + 1));
+    // argc, argv**, envp**, argv*[i] + nullptr, envp*[i] + nullptr
+    uint32_t pointer_stack_space = 4 + 4 + 4 + (4 * (n_args + 1)) + (4 * (n_envs + 1));
     uint32_t stack_space_needed = pointer_stack_space + total_length;
     uint32_t stack_pointer = (USER_STACK_START - stack_space_needed) & 0xFFFF'FFF0;
 
@@ -168,19 +168,29 @@ uint32_t set_up_stack(uint32_t n_args, uint32_t total_length, const char** args,
     uint32_t pointer_address = stack_pointer;
     uint32_t data_address = stack_pointer + pointer_stack_space;
 
-    write_stack_data(n_args, pointer_address, current_pointer_block, directory);             // argc
-    write_stack_data(stack_pointer + 8, pointer_address, current_pointer_block, directory);  // argv**
+    write_stack_data(n_args, pointer_address, current_pointer_block, directory);                                   // argc
+    write_stack_data(stack_pointer + 12, pointer_address, current_pointer_block, directory);                       // argv**
+    write_stack_data(stack_pointer + 12 + (4 * (n_args + 1)), pointer_address, current_pointer_block, directory);  // envp**
 
     for (uint32_t i = 0; i < n_args; i++) {
         write_stack_data(data_address, pointer_address, current_pointer_block, directory);  // argv*
 
-        for (uint32_t j = 0; args[i][j] != 0; j++) {
-            write_stack_data(args[i][j], data_address, current_data_block, directory);  // char* data
+        for (uint32_t j = 0; argv[i][j] != 0; j++) {
+            write_stack_data(argv[i][j], data_address, current_data_block, directory);  // char* data
         }
         write_stack_data<char>(0, data_address, current_data_block, directory);  // char* null terminator
     }
-
     write_stack_data<uint32_t>(0, pointer_address, current_pointer_block, directory);  // argv null terminator
+
+    for (uint32_t i = 0; i < n_envs; i++) {
+        write_stack_data(data_address, pointer_address, current_pointer_block, directory);  // argv*
+
+        for (uint32_t j = 0; envp[i][j] != 0; j++) {
+            write_stack_data(envp[i][j], data_address, current_data_block, directory);  // char* data
+        }
+        write_stack_data<char>(0, data_address, current_data_block, directory);  // char* null terminator
+    }
+    write_stack_data<uint32_t>(0, pointer_address, current_pointer_block, directory);  // envp null terminator
 
     return stack_pointer;
 }

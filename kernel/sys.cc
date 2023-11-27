@@ -83,15 +83,16 @@ int wrapped_sys_handler(uint32_t syscall_type, uint32_t* interrupt_frame) {
             }
         }
 
-        case 1000: {  // int execl(const char* path, const char** args)
+        case 1000: {  // int execve(const char* path, char *const argv[], char *const envp[])
             if (!validate_address(sys_args)) {
                 return -1 * EFAULT;
             }
 
             auto path = reinterpret_cast<const char*>(sys_args[0]);
-            auto args = reinterpret_cast<const char**>(sys_args + 1);
+            auto argv = reinterpret_cast<const char* const*>(sys_args[1]);
+            auto envp = reinterpret_cast<const char* const*>(sys_args[2]);
 
-            return SYS::execl(path, args);
+            return SYS::execve(path, argv, envp);
         }
 
         case 1001: {  // int sem(uint32_t counter)
@@ -115,11 +116,14 @@ int wrapped_sys_handler(uint32_t syscall_type, uint32_t* interrupt_frame) {
             }
 
             auto process = active_processes.mine();
-            auto semaphore = process->semaphores.get(sys_args[0]);
-            if (semaphore == nullptr) {
+            auto semaphore_pointer = process->semaphores.get(sys_args[0]);
+            if (semaphore_pointer == nullptr) {
                 return -1 * EBADF;
             }
-
+            auto& semaphore = *semaphore_pointer;
+            if(semaphore == nullptr) {
+                return -1 * EBADF;
+            }
             semaphore->up();
             return 0;
         }
@@ -130,8 +134,12 @@ int wrapped_sys_handler(uint32_t syscall_type, uint32_t* interrupt_frame) {
             }
 
             auto process = active_processes.mine();
-            auto semaphore = process->semaphores.get(sys_args[0]);
-            if (semaphore == nullptr) {
+            auto semaphore_pointer = process->semaphores.get(sys_args[0]);
+            if (semaphore_pointer == nullptr) {
+                return -1 * EBADF;
+            }
+            auto& semaphore = *semaphore_pointer;
+            if(semaphore == nullptr) {
                 return -1 * EBADF;
             }
 
@@ -201,8 +209,11 @@ int wrapped_sys_handler(uint32_t syscall_type, uint32_t* interrupt_frame) {
             if (offset % PhysMem::FRAME_SIZE != 0) {
                 return -1 * EINVAL;
             }
-
-            auto fd = process->file_descriptors.get(sys_args[2]);
+            auto fd_pointer = process->file_descriptors.get(file);
+            if (fd_pointer == nullptr) {
+                return -1 * EBADF;
+            }
+            auto& fd = *fd_pointer;
             if (fd == nullptr || !fd->supports_offset()) {
                 return -1 * EBADF;
             }
@@ -300,7 +311,11 @@ int wrapped_sys_handler(uint32_t syscall_type, uint32_t* interrupt_frame) {
             }
 
             auto process = active_processes.mine();
-            auto fd = process->file_descriptors.get(sys_args[0]);
+            auto fd_pointer = process->file_descriptors.get(sys_args[0]);
+            if (fd_pointer == nullptr) {
+                return -1 * EBADF;
+            }
+            auto& fd = *fd_pointer;
             if (fd == nullptr) {
                 return -1 * EBADF;
             }
@@ -329,7 +344,11 @@ int wrapped_sys_handler(uint32_t syscall_type, uint32_t* interrupt_frame) {
             buffer[0] = buffer[0];
 
             auto process = active_processes.mine();
-            auto fd = process->file_descriptors.get(sys_args[0]);
+            auto fd_pointer = process->file_descriptors.get(sys_args[0]);
+            if (fd_pointer == nullptr) {
+                return -1 * EBADF;
+            }
+            auto& fd = *fd_pointer;
             if (fd == nullptr || !fd->is_readable()) {
                 return -1 * EBADF;
             }
@@ -366,7 +385,11 @@ int wrapped_sys_handler(uint32_t syscall_type, uint32_t* interrupt_frame) {
             (void)buffer[0];
 
             auto process = active_processes.mine();
-            auto fd = process->file_descriptors.get(sys_args[0]);
+            auto fd_pointer = process->file_descriptors.get(sys_args[0]);
+            if (fd_pointer == nullptr) {
+                return -1 * EBADF;
+            }
+            auto& fd = *fd_pointer;
             if (fd == nullptr || !fd->is_writable()) {
                 return -1 * EBADF;
             }
@@ -399,7 +422,7 @@ int wrapped_sys_handler(uint32_t syscall_type, uint32_t* interrupt_frame) {
                 return -1 * EMFILE;
             }
 
-            auto buffer = Shared<BoundedBuffer<char>>::make(100);
+            auto buffer = Shared<BoundedBuffer<CharWrapper>>::make(4096);
             *descriptors[0] = process->file_descriptors.alloc(FileDescriptor::from_bounded_buffer(buffer, false));
             *descriptors[1] = process->file_descriptors.alloc(FileDescriptor::from_bounded_buffer(buffer, true));
 
@@ -416,7 +439,11 @@ int wrapped_sys_handler(uint32_t syscall_type, uint32_t* interrupt_frame) {
                 return -1 * EMFILE;
             }
 
-            auto fd = process->file_descriptors.get(sys_args[0]);
+            auto fd_pointer = process->file_descriptors.get(sys_args[0]);
+            if (fd_pointer == nullptr) {
+                return -1 * EBADF;
+            }
+            auto& fd = *fd_pointer;
             if (fd == nullptr) {
                 return -1 * EBADF;
             }
@@ -450,7 +477,14 @@ int wrapped_sys_handler(uint32_t syscall_type, uint32_t* interrupt_frame) {
             }
             return lseek(sys_args[0], sys_args[1], sys_args[2]);
         }
-        
+
+        case 1050: { // int isatty(int fd)
+            if (!validate_address(sys_args)) {
+                return -1 * EFAULT;
+            }
+            return isatty(sys_args[0]);
+        }
+
         case 2000: { // int is_pressed(int key) (0 is false)
             if (!validate_address(sys_args)) {
                 return -1 * EFAULT;
@@ -508,26 +542,48 @@ void SYS::init(void) {
     IDT::trap(48, (uint32_t)sysHandler_, 3);
 }
 
-int32_t SYS::execl(const char* path, const char** args, bool is_initial) {
+int32_t SYS::execve(const char* pathname, const char* const argv[], const char* const envp[], bool is_initial) {
     Process* new_process = nullptr;
 
     {
-        if (Utils::validate_and_count(path, is_initial) == -1) {
+        if (Utils::validate_and_count(pathname, is_initial) == -1) {
             return -1 * EFAULT;
         }
 
-        int32_t n_args = Utils::validate_and_count(args, is_initial);
-        if (n_args == -1) {
-            return -1 * EFAULT;
+        int32_t n_args;
+        if (argv == nullptr) {
+            n_args = 0;
+        } else {
+            n_args = Utils::validate_and_count(argv, is_initial);
+            if (n_args == -1) {
+                return -1 * EFAULT;
+            }
+        }
+
+        int32_t n_envs;
+        if (envp == nullptr) {
+            n_envs = 0;
+        } else {
+            n_envs = Utils::validate_and_count(envp, is_initial);
+            if (n_envs == -1) {
+                return -1 * EFAULT;
+            }
         }
 
         uint32_t total_length = 0;
+        for (int32_t i = 0; i < n_envs; i++) {
+            int32_t var_length = Utils::validate_and_count(envp[i], is_initial);
+            if (var_length == -1) {
+                return -1 * EFAULT;
+            }
+            total_length += var_length + 1;
+        }
+
         for (int32_t i = 0; i < n_args; i++) {
-            int32_t arg_length = Utils::validate_and_count(args[i], is_initial);
+            int32_t arg_length = Utils::validate_and_count(argv[i], is_initial);
             if (arg_length == -1) {
                 return -1 * EFAULT;
             }
-
             total_length += arg_length + 1;
         }
 
@@ -539,8 +595,8 @@ int32_t SYS::execl(const char* path, const char** args, bool is_initial) {
         // find and validate the ELF file
         auto previous_process = active_processes.mine();
         auto file = UniquePtr(previous_process == nullptr
-                                  ? find_fs_node(path)
-                                  : previous_process->lookup_path(path));
+                                  ? find_fs_node(pathname)
+                                  : previous_process->lookup_path(pathname));
         if (file == nullptr) {
             return -1 * ENOENT;
         }
@@ -557,7 +613,7 @@ int32_t SYS::execl(const char* path, const char** args, bool is_initial) {
         auto smart_elf = UniquePtr<ElfLoadList::ElfLoad, ElfLoadList::ElfLoad[]>(elf_info.loads);
 
         uint32_t new_directory = VMM::new_directory();
-        uint32_t initial_esp = VMM::set_up_stack(n_args, total_length, args, new_directory);
+        uint32_t initial_esp = VMM::set_up_stack(new_directory, total_length, argv, n_args, envp, n_envs);
         vmm_on(new_directory);
 
         if (previous_process != nullptr) {
